@@ -1,0 +1,31 @@
+[project]
+name = "write-audit-publish"
+version = "0.1.0"
+description = "A module to manage the write-audit-publish paradigm with iceberg"
+readme = "README.md"
+authors = [
+    { name = "Sadha Chilukoori", email = "srchilukoori@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pyiceberg>=0.9.0",
+    "polars>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.11",
+    "ty>=0.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/write_audit_publish"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
