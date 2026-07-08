@@ -21,3 +21,5 @@ htmlcov/
 
 .env
 .python-version
+
+site/
