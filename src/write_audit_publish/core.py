@@ -10,6 +10,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class CheckReport:
+    """Aggregated results from an audit pass.
+
+    Attributes:
+        results: List of individual ``CheckResult`` objects.
+    """
+
     results: list[CheckResult] = field(default_factory=list)
 
     @property
@@ -22,6 +28,8 @@ class CheckReport:
 
 
 class AuditFailedError(Exception):
+    """Raised when a hard DQ audit (``on_failure="stop"``) finds violations."""
+
     def __init__(self, table: str, version_ref: str, failed: list[CheckResult]) -> None:
         self.table = table
         self.version_ref = version_ref
@@ -31,6 +39,13 @@ class AuditFailedError(Exception):
 
 
 class WAPSession:
+    """A single write-audit-publish session for one table version.
+
+    Created by ``WAP.table()``. Supports fluent chaining::
+
+        WAP(backend).table("sales").write(fn).audit([checks]).publish()
+    """
+
     def __init__(self, backend: Backend, table: str, version_ref: str) -> None:
         self._backend = backend
         self._table = table
@@ -80,6 +95,16 @@ class WAPSession:
 
 
 class WAP:
+    """Entry point for the write-audit-publish pattern.
+
+    Args:
+        backend: Storage backend (e.g. ``CsvBackend``, ``IcebergBackend``).
+
+    Example::
+
+        WAP(CsvBackend(staging, publish)).table("sales").write(fn).audit([NullCheck("id")]).publish()
+    """
+
     def __init__(self, backend: Backend) -> None:
         self._backend = backend
 
