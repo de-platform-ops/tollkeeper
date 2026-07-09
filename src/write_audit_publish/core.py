@@ -53,6 +53,7 @@ class WAPSession:
         self._version_ref = version_ref
         self._report = CheckReport()
         self._published = False
+        self._rolled_back = False
         self._signal_store = signal_store
 
     @property
@@ -64,7 +65,12 @@ class WAPSession:
         return self._report
 
     def write(self, fn: Callable[[str], None]) -> WAPSession:
-        fn(self._version_ref)
+        try:
+            fn(self._version_ref)
+        except Exception:
+            self._backend.rollback_version(self._table, self._version_ref)
+            self._rolled_back = True
+            raise
         return self
 
     def audit(
@@ -87,8 +93,11 @@ class WAPSession:
             if on_notify:
                 on_notify(self._table, self._version_ref, self._report.failed)
             if on_failure == "stop":
-                self._backend.rollback_version(self._table, self._version_ref)
-                raise AuditFailedError(self._table, self._version_ref, self._report.failed)
+                try:
+                    self._backend.rollback_version(self._table, self._version_ref)
+                finally:
+                    self._rolled_back = True
+                    raise AuditFailedError(self._table, self._version_ref, self._report.failed)
 
         if self._signal_store and self._report.passed:
             from datetime import datetime
@@ -108,13 +117,19 @@ class WAPSession:
         return self
 
     def publish(self) -> WAPSession:
+        if self._rolled_back:
+            raise RuntimeError("Cannot publish a rolled-back session")
         if not self._published:
             self._backend.publish_version(self._table, self._version_ref)
             self._published = True
         return self
 
     def rollback(self) -> WAPSession:
-        self._backend.rollback_version(self._table, self._version_ref)
+        if self._published:
+            raise RuntimeError("Cannot rollback a published session")
+        if not self._rolled_back:
+            self._backend.rollback_version(self._table, self._version_ref)
+            self._rolled_back = True
         return self
 
 
