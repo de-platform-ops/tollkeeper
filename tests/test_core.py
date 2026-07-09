@@ -110,5 +110,63 @@ class TestWAPFluentAPI:
         backend = FakeBackend()
         with pytest.raises(AuditFailedError):
             WAP(backend).table("t").audit([PassingCheck(), FailingCheck()], on_failure="stop")
-        # rollback happened
         assert backend.rolled_back == [("t", "branch-t-001")]
+
+
+class BrokenRollbackBackend(Backend):
+    def create_version(self, table: str) -> str:
+        return f"branch-{table}-001"
+
+    def publish_version(self, table: str, version_ref: str) -> None:
+        pass
+
+    def rollback_version(self, table: str, version_ref: str) -> None:
+        raise ConnectionError("catalog unavailable")
+
+
+class TestBug1RollbackMasksAuditError:
+    def test_audit_failed_error_raised_even_when_rollback_fails(self) -> None:
+        backend = BrokenRollbackBackend()
+        with pytest.raises(AuditFailedError, match="FailingCheck"):
+            WAP(backend).table("t").audit([FailingCheck()], on_failure="stop")
+
+
+class TestBug2WriteOrphansVersion:
+    def test_write_rolls_back_on_exception(self) -> None:
+        backend = FakeBackend()
+        with pytest.raises(ZeroDivisionError):
+            WAP(backend).table("t").write(lambda ref: 1 / 0)
+        assert backend.rolled_back == [("t", "branch-t-001")]
+
+    def test_write_rollback_is_idempotent_with_explicit_rollback(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        with pytest.raises(ZeroDivisionError):
+            session.write(lambda ref: 1 / 0)
+        session.rollback()
+        assert len(backend.rolled_back) == 1
+
+
+class TestBug3RollbackStateGuard:
+    def test_cannot_rollback_after_publish(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.publish()
+        with pytest.raises(RuntimeError, match="Cannot rollback a published session"):
+            session.rollback()
+        assert len(backend.rolled_back) == 0
+
+    def test_cannot_publish_after_rollback(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.rollback()
+        with pytest.raises(RuntimeError, match="Cannot publish a rolled-back session"):
+            session.publish()
+        assert len(backend.published) == 0
+
+    def test_rollback_is_idempotent(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.rollback()
+        session.rollback()
+        assert len(backend.rolled_back) == 1
