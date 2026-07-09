@@ -54,7 +54,21 @@ class WAPSession:
         self._report = CheckReport()
         self._published = False
         self._rolled_back = False
+        self._audited = False
         self._signal_store = signal_store
+
+    def __del__(self) -> None:
+        if not self._published and not self._rolled_back:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "WAPSession for %s was never published or rolled back — rolling back", self._table
+            )
+            try:
+                self._backend.rollback_version(self._table, self._version_ref)
+            except Exception:
+                pass
+            self._rolled_back = True
 
     @property
     def ref(self) -> str:
@@ -65,6 +79,14 @@ class WAPSession:
         return self._report
 
     def write(self, fn: Callable[[str], None]) -> WAPSession:
+        """Execute the write function against the staged version.
+
+        Args:
+            fn: Callable that receives the version reference and writes data to it.
+
+        Raises:
+            Exception: Re-raises any exception from ``fn`` after rolling back the staged version.
+        """
         try:
             fn(self._version_ref)
         except Exception:
@@ -87,7 +109,8 @@ class WAPSession:
         if self._signal_store:
             self._signal_store.delete(self._table, execution_ctx)
 
-        self._report = CheckReport([check.run(self._version_ref) for check in checks])
+        self._report.results.extend(check.run(self._version_ref) for check in checks)
+        self._audited = True
 
         if self._report.failed:
             if on_notify:
@@ -117,14 +140,27 @@ class WAPSession:
         return self
 
     def publish(self) -> WAPSession:
+        """Promote the staged version to production.
+
+        Raises:
+            RuntimeError: If the session was already rolled back.
+            RuntimeError: If ``audit()`` has not been called.
+        """
         if self._rolled_back:
             raise RuntimeError("Cannot publish a rolled-back session")
+        if not self._audited:
+            raise RuntimeError("Cannot publish without running audit first")
         if not self._published:
             self._backend.publish_version(self._table, self._version_ref)
             self._published = True
         return self
 
     def rollback(self) -> WAPSession:
+        """Discard the staged version without publishing.
+
+        Raises:
+            RuntimeError: If the session was already published.
+        """
         if self._published:
             raise RuntimeError("Cannot rollback a published session")
         if not self._rolled_back:

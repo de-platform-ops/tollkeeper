@@ -16,6 +16,8 @@
 
 ::: write_audit_publish.backends.csv.CsvBackend
 
+::: write_audit_publish.backends.iceberg.IcebergBackend
+
 ## Checks
 
 ::: write_audit_publish.checks.base.BaseCheck
@@ -31,3 +33,13 @@
 ::: write_audit_publish.checks.polars.SqlCheck
 
 ::: write_audit_publish.checks.polars.UniqueCheck
+
+## Signals
+
+::: write_audit_publish.signals.base.Signal
+
+::: write_audit_publish.signals.base.SignalStore
+
+::: write_audit_publish.signals.sqlite.SqliteSignalStore
+
+::: write_audit_publish.signals.dbapi.DbApiSignalStore

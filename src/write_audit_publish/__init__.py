@@ -1,5 +1,6 @@
 from write_audit_publish.backends.base import Backend
 from write_audit_publish.backends.csv import CsvBackend
+from write_audit_publish.backends.iceberg import IcebergBackend
 from write_audit_publish.checks.base import BaseCheck, CheckResult
 from write_audit_publish.checks.polars import ExpressionCheck, NullCheck, RowCountCheck, SqlCheck, UniqueCheck
 from write_audit_publish.core import WAP, AuditFailedError, CheckReport, WAPSession
@@ -16,6 +17,7 @@ __all__ = [
     "BaseCheck",
     "CheckResult",
     "CsvBackend",
+    "IcebergBackend",
     "DbApiSignalStore",
     "ExpressionCheck",
     "NullCheck",

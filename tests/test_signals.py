@@ -4,36 +4,10 @@ import sqlite3
 
 import pytest
 
-from write_audit_publish import WAP, AuditFailedError, BaseCheck, CheckResult
-from write_audit_publish.backends.base import Backend
+from write_audit_publish import WAP, AuditFailedError
 from write_audit_publish.signals import DbApiSignalStore, Signal, SqliteSignalStore
 
-
-class FakeBackend(Backend):
-    def __init__(self) -> None:
-        self.created: list[str] = []
-        self.published: list[tuple[str, str]] = []
-        self.rolled_back: list[tuple[str, str]] = []
-
-    def create_version(self, table: str) -> str:
-        self.created.append(table)
-        return f"branch-{table}-001"
-
-    def publish_version(self, table: str, version_ref: str) -> None:
-        self.published.append((table, version_ref))
-
-    def rollback_version(self, table: str, version_ref: str) -> None:
-        self.rolled_back.append((table, version_ref))
-
-
-class PassingCheck(BaseCheck):
-    def run(self, version_ref: str) -> CheckResult:
-        return CheckResult(check_name=self.name, passed=True)
-
-
-class FailingCheck(BaseCheck):
-    def run(self, version_ref: str) -> CheckResult:
-        return CheckResult(check_name=self.name, passed=False, details="row count is 0")
+from .conftest import FailingCheck, FakeBackend, PassingCheck
 
 
 def _make_sqlite_store(tmp_path, suffix=""):
@@ -50,6 +24,32 @@ def store(request, tmp_path):
     if request.param == "sqlite":
         return _make_sqlite_store(tmp_path)
     return _make_dbapi_store(tmp_path)
+
+
+class TestDbApiParamstyle:
+    def test_qmark_paramstyle(self, tmp_path) -> None:
+        conn = sqlite3.connect(str(tmp_path / "qmark.db"))
+        store = DbApiSignalStore(conn, paramstyle="qmark")
+        store.write(Signal(table_name="t"))
+        assert store.check("t") is not None
+
+    def test_format_paramstyle_rejected_by_sqlite(self, tmp_path) -> None:
+        conn = sqlite3.connect(str(tmp_path / "format.db"))
+        store = DbApiSignalStore(conn, paramstyle="format")
+        assert store._ph == "%s"
+        assert store._p("SELECT * WHERE x = ?") == "SELECT * WHERE x = %s"
+
+    def test_invalid_paramstyle_raises(self, tmp_path) -> None:
+        conn = sqlite3.connect(str(tmp_path / "bad.db"))
+        with pytest.raises(ValueError, match="paramstyle must be"):
+            DbApiSignalStore(conn, paramstyle="pyformat")
+
+    def test_p_replaces_all_placeholders(self) -> None:
+        conn = sqlite3.connect(":memory:")
+        store = DbApiSignalStore(conn, paramstyle="qmark")
+        assert store._p("WHERE a = ? AND b = ?") == "WHERE a = ? AND b = ?"
+        store2 = DbApiSignalStore(conn, paramstyle="format")
+        assert store2._p("WHERE a = ? AND b = ?") == "WHERE a = %s AND b = %s"
 
 
 class TestSignalCRUD:
