@@ -8,13 +8,16 @@ authors = [
 ]
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-dependencies = [
-    "pyiceberg>=0.9.0",
-    "polars>=1.0.0",
-]
+dependencies = []
+
+[project.optional-dependencies]
+polars = ["polars>=1.0.0"]
+iceberg = ["pyiceberg>=0.9.0"]
+all = ["write-audit-publish[polars,iceberg]"]
 
 [dependency-groups]
 dev = [
+    "write-audit-publish[all]",
     "pyarrow>=24.0.0",
     "pytest>=8.0",
     "pytest-cov>=6.0",

@@ -16,7 +16,7 @@ class NullCheck(BaseCheck):
         self._column = column
 
     def run(self, version_ref: str) -> CheckResult:
-        df = pl.read_csv(version_ref)
+        df = pl.scan_csv(version_ref).collect()
         null_count = df[self._column].null_count()
         return CheckResult(
             check_name=self.name,
@@ -36,7 +36,7 @@ class RowCountCheck(BaseCheck):
         self._min_rows = min_rows
 
     def run(self, version_ref: str) -> CheckResult:
-        df = pl.read_csv(version_ref)
+        df = pl.scan_csv(version_ref).collect()
         count = len(df)
         return CheckResult(
             check_name=self.name,
@@ -66,7 +66,7 @@ class ExpressionCheck(BaseCheck):
         return self._name
 
     def run(self, version_ref: str) -> CheckResult:
-        df = pl.read_csv(version_ref)
+        df = pl.scan_csv(version_ref).collect()
         violations = df.filter(~self._expr)
         return CheckResult(
             check_name=self.name,
@@ -99,7 +99,7 @@ class SqlCheck(BaseCheck):
         return self._name
 
     def run(self, version_ref: str) -> CheckResult:
-        df = pl.read_csv(version_ref)
+        df = pl.scan_csv(version_ref).collect()
         ctx = pl.SQLContext({"data": df})
         violations = ctx.execute(f"SELECT * FROM data WHERE NOT ({self._condition})").collect()
         return CheckResult(
@@ -124,7 +124,7 @@ class UniqueCheck(BaseCheck):
         self._columns = columns
 
     def run(self, version_ref: str) -> CheckResult:
-        df = pl.read_csv(version_ref)
+        df = pl.scan_csv(version_ref).collect()
         duplicates = df.group_by(self._columns).len().filter(pl.col("len") > 1)
         return CheckResult(
             check_name=self.name,
