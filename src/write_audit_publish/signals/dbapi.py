@@ -34,7 +34,8 @@ class DbApiSignalStore(SignalStore):
 
     def _init_schema(self) -> None:
         cur = self._conn.cursor()
-        cur.execute(self._p("""
+        cur.execute(
+            self._p("""
             CREATE TABLE IF NOT EXISTS wap_signals (
                 table_name    VARCHAR(512) NOT NULL,
                 execution_ctx VARCHAR(2048) NOT NULL DEFAULT '{}',
@@ -45,8 +46,10 @@ class DbApiSignalStore(SignalStore):
                 metadata      VARCHAR(4096) DEFAULT '{}',
                 PRIMARY KEY (table_name, execution_ctx)
             )
-        """))
-        cur.execute(self._p("""
+        """)
+        )
+        cur.execute(
+            self._p("""
             CREATE TABLE IF NOT EXISTS wap_signal_deps (
                 upstream_table   VARCHAR(512) NOT NULL,
                 upstream_ctx     VARCHAR(2048) NOT NULL DEFAULT '{}',
@@ -55,7 +58,8 @@ class DbApiSignalStore(SignalStore):
                 cascade_policy   VARCHAR(20) NOT NULL DEFAULT 'notify',
                 PRIMARY KEY (upstream_table, upstream_ctx, downstream_table, downstream_ctx)
             )
-        """))
+        """)
+        )
         self._conn.commit()
 
     @staticmethod
@@ -66,22 +70,29 @@ class DbApiSignalStore(SignalStore):
         ctx_key = self._ctx_key(signal.execution_ctx)
         now = datetime.now().isoformat()
         cur = self._conn.cursor()
-        cur.execute(self._p("DELETE FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"),
-                    (signal.table_name, ctx_key))
+        cur.execute(
+            self._p("DELETE FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"), (signal.table_name, ctx_key)
+        )
         cur.execute(
             self._p("""INSERT INTO wap_signals
                        (table_name, execution_ctx, status, execution_ts, updated_at, check_summary, metadata)
                        VALUES (?, ?, ?, ?, ?, ?, ?)"""),
-            (signal.table_name, ctx_key, signal.status, signal.execution_ts.isoformat(), now,
-             signal.check_summary, json.dumps(signal.metadata)),
+            (
+                signal.table_name,
+                ctx_key,
+                signal.status,
+                signal.execution_ts.isoformat(),
+                now,
+                signal.check_summary,
+                json.dumps(signal.metadata),
+            ),
         )
         self._conn.commit()
 
     def delete(self, table: str, execution_ctx: dict | None = None) -> None:
         ctx_key = self._ctx_key(execution_ctx)
         cur = self._conn.cursor()
-        cur.execute(self._p("DELETE FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"),
-                    (table, ctx_key))
+        cur.execute(self._p("DELETE FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"), (table, ctx_key))
         self._conn.commit()
 
         for ds_table, ds_ctx, policy in self.get_downstream(table, execution_ctx):
@@ -93,8 +104,7 @@ class DbApiSignalStore(SignalStore):
     def check(self, table: str, execution_ctx: dict | None = None) -> Signal | None:
         ctx_key = self._ctx_key(execution_ctx)
         cur = self._conn.cursor()
-        cur.execute(self._p("SELECT * FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"),
-                    (table, ctx_key))
+        cur.execute(self._p("SELECT * FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"), (table, ctx_key))
         row = cur.fetchone()
         if row is None:
             return None
@@ -118,23 +128,32 @@ class DbApiSignalStore(SignalStore):
         if cascade_policy not in ("notify", "cascade"):
             raise ValueError("cascade_policy must be 'notify' or 'cascade'")
         cur = self._conn.cursor()
-        cur.execute(self._p("DELETE FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ? AND downstream_table = ? AND downstream_ctx = ?"),
-                    (upstream_table, self._ctx_key(upstream_ctx), downstream_table, self._ctx_key(downstream_ctx)))
+        cur.execute(
+            self._p(
+                "DELETE FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ? AND downstream_table = ? AND downstream_ctx = ?"
+            ),
+            (upstream_table, self._ctx_key(upstream_ctx), downstream_table, self._ctx_key(downstream_ctx)),
+        )
         cur.execute(
             self._p("""INSERT INTO wap_signal_deps
                        (upstream_table, upstream_ctx, downstream_table, downstream_ctx, cascade_policy)
                        VALUES (?, ?, ?, ?, ?)"""),
-            (upstream_table, self._ctx_key(upstream_ctx), downstream_table,
-             self._ctx_key(downstream_ctx), cascade_policy),
+            (
+                upstream_table,
+                self._ctx_key(upstream_ctx),
+                downstream_table,
+                self._ctx_key(downstream_ctx),
+                cascade_policy,
+            ),
         )
         self._conn.commit()
 
-    def get_downstream(
-        self, table: str, execution_ctx: dict | None = None
-    ) -> list[tuple[str, dict, str]]:
+    def get_downstream(self, table: str, execution_ctx: dict | None = None) -> list[tuple[str, dict, str]]:
         cur = self._conn.cursor()
         cur.execute(
-            self._p("SELECT downstream_table, downstream_ctx, cascade_policy FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ?"),
+            self._p(
+                "SELECT downstream_table, downstream_ctx, cascade_policy FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ?"
+            ),
             (table, self._ctx_key(execution_ctx)),
         )
         return [(r[0], json.loads(r[1]), r[2]) for r in cur.fetchall()]

@@ -95,13 +95,15 @@ class WAPSession:
 
             from write_audit_publish.signals.base import Signal
 
-            self._signal_store.write(Signal(
-                table_name=self._table,
-                execution_ctx=execution_ctx or {},
-                status="passed",
-                execution_ts=datetime.now(),
-                check_summary=f"{len(self._report.results)} checks passed",
-            ))
+            self._signal_store.write(
+                Signal(
+                    table_name=self._table,
+                    execution_ctx=execution_ctx or {},
+                    status="passed",
+                    execution_ts=datetime.now(),
+                    check_summary=f"{len(self._report.results)} checks passed",
+                )
+            )
 
         return self
 

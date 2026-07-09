@@ -66,7 +66,5 @@ class SignalStore(ABC):
         """Declare that downstream depends on upstream."""
 
     @abstractmethod
-    def get_downstream(
-        self, table: str, execution_ctx: dict | None = None
-    ) -> list[tuple[str, dict, str]]:
+    def get_downstream(self, table: str, execution_ctx: dict | None = None) -> list[tuple[str, dict, str]]:
         """Return (table, ctx, cascade_policy) for all downstream dependents."""

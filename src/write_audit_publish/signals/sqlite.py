@@ -59,8 +59,15 @@ class SqliteSignalStore(SignalStore):
                    status=excluded.status, execution_ts=excluded.execution_ts,
                    updated_at=excluded.updated_at, check_summary=excluded.check_summary,
                    metadata=excluded.metadata""",
-            (signal.table_name, ctx_key, signal.status, signal.execution_ts.isoformat(), now,
-             signal.check_summary, json.dumps(signal.metadata)),
+            (
+                signal.table_name,
+                ctx_key,
+                signal.status,
+                signal.execution_ts.isoformat(),
+                now,
+                signal.check_summary,
+                json.dumps(signal.metadata),
+            ),
         )
         self._conn.commit()
 
@@ -109,14 +116,17 @@ class SqliteSignalStore(SignalStore):
             """INSERT OR REPLACE INTO wap_signal_deps
                (upstream_table, upstream_ctx, downstream_table, downstream_ctx, cascade_policy)
                VALUES (?, ?, ?, ?, ?)""",
-            (upstream_table, self._ctx_key(upstream_ctx), downstream_table,
-             self._ctx_key(downstream_ctx), cascade_policy),
+            (
+                upstream_table,
+                self._ctx_key(upstream_ctx),
+                downstream_table,
+                self._ctx_key(downstream_ctx),
+                cascade_policy,
+            ),
         )
         self._conn.commit()
 
-    def get_downstream(
-        self, table: str, execution_ctx: dict | None = None
-    ) -> list[tuple[str, dict, str]]:
+    def get_downstream(self, table: str, execution_ctx: dict | None = None) -> list[tuple[str, dict, str]]:
         rows = self._conn.execute(
             "SELECT downstream_table, downstream_ctx, cascade_policy FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ?",
             (table, self._ctx_key(execution_ctx)),
