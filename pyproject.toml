@@ -16,6 +16,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=6.0",
     "ruff>=0.11",
     "ty>=0.0.1",
 ]
@@ -31,6 +32,21 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/write_audit_publish"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=write_audit_publish --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["write_audit_publish"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
 
 [tool.ruff]
 line-length = 120
