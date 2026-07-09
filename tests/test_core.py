@@ -43,7 +43,7 @@ class TestWAPFluentAPI:
     def test_write_passes_ref_to_callable(self) -> None:
         backend = FakeBackend()
         written_to: list[str] = []
-        WAP(backend).table("t").write(lambda ref: written_to.append(ref)).publish()
+        WAP(backend).table("t").write(lambda ref: written_to.append(ref)).audit([PassingCheck()]).publish()
         assert written_to == ["branch-t-001"]
         assert backend.published == [("t", "branch-t-001")]
 
@@ -96,7 +96,7 @@ class TestWAPFluentAPI:
 
     def test_publish_is_idempotent(self) -> None:
         backend = FakeBackend()
-        session = WAP(backend).table("t")
+        session = WAP(backend).table("t").audit([PassingCheck()])
         session.publish()
         session.publish()
         assert len(backend.published) == 1
@@ -150,7 +150,7 @@ class TestBug2WriteOrphansVersion:
 class TestBug3RollbackStateGuard:
     def test_cannot_rollback_after_publish(self) -> None:
         backend = FakeBackend()
-        session = WAP(backend).table("t")
+        session = WAP(backend).table("t").audit([PassingCheck()])
         session.publish()
         with pytest.raises(RuntimeError, match="Cannot rollback a published session"):
             session.rollback()
@@ -170,3 +170,64 @@ class TestBug3RollbackStateGuard:
         session.rollback()
         session.rollback()
         assert len(backend.rolled_back) == 1
+
+
+class TestBug4OrphanedSession:
+    def test_del_rolls_back_uncommitted_session(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.__del__()
+        assert backend.rolled_back == [("t", "branch-t-001")]
+
+    def test_del_noop_after_publish(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t").audit([PassingCheck()])
+        session.publish()
+        session.__del__()
+        assert len(backend.rolled_back) == 0
+
+    def test_del_noop_after_rollback(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.rollback()
+        session.__del__()
+        assert len(backend.rolled_back) == 1
+
+
+class TestBug5AuditOverwrites:
+    def test_multiple_audits_accumulate_results(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.audit([PassingCheck()], on_failure="continue")
+        session.audit([FailingCheck()], on_failure="continue")
+        assert len(session.report.results) == 2
+        assert not session.report.passed
+
+    def test_multiple_audits_all_passing(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.audit([PassingCheck()], on_failure="continue")
+        session.audit([PassingCheck()], on_failure="continue")
+        assert len(session.report.results) == 2
+        assert session.report.passed
+
+
+class TestBug6PublishWithoutAudit:
+    def test_publish_without_audit_raises(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        session.write(lambda ref: None)
+        with pytest.raises(RuntimeError, match="Cannot publish without running audit"):
+            session.publish()
+        assert len(backend.published) == 0
+
+    def test_publish_after_audit_works(self) -> None:
+        backend = FakeBackend()
+        WAP(backend).table("t").audit([PassingCheck()]).publish()
+        assert len(backend.published) == 1
+
+    def test_publish_without_write_or_audit_raises(self) -> None:
+        backend = FakeBackend()
+        session = WAP(backend).table("t")
+        with pytest.raises(RuntimeError, match="Cannot publish without running audit"):
+            session.publish()
