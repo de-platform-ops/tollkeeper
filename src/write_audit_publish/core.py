@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from write_audit_publish.backends.base import Backend
     from write_audit_publish.checks.base import BaseCheck, CheckResult
+    from write_audit_publish.signals.base import SignalStore
 
 
 @dataclass
@@ -46,12 +47,13 @@ class WAPSession:
         WAP(backend).table("sales").write(fn).audit([checks]).publish()
     """
 
-    def __init__(self, backend: Backend, table: str, version_ref: str) -> None:
+    def __init__(self, backend: Backend, table: str, version_ref: str, signal_store: SignalStore | None = None) -> None:
         self._backend = backend
         self._table = table
         self._version_ref = version_ref
         self._report = CheckReport()
         self._published = False
+        self._signal_store = signal_store
 
     @property
     def ref(self) -> str:
@@ -71,16 +73,38 @@ class WAPSession:
         *,
         on_failure: str = "stop",
         on_notify: Callable[[str, str, list[CheckResult]], None] | None = None,
+        execution_ctx: dict | None = None,
     ) -> WAPSession:
         if on_failure not in ("stop", "continue"):
             raise ValueError("on_failure must be 'stop' or 'continue'")
+
+        if self._signal_store:
+            self._signal_store.delete(self._table, execution_ctx)
+
         self._report = CheckReport([check.run(self._version_ref) for check in checks])
+
         if self._report.failed:
             if on_notify:
                 on_notify(self._table, self._version_ref, self._report.failed)
             if on_failure == "stop":
                 self._backend.rollback_version(self._table, self._version_ref)
                 raise AuditFailedError(self._table, self._version_ref, self._report.failed)
+
+        if self._signal_store and self._report.passed:
+            from datetime import datetime
+
+            from write_audit_publish.signals.base import Signal
+
+            self._signal_store.write(
+                Signal(
+                    table_name=self._table,
+                    execution_ctx=execution_ctx or {},
+                    status="passed",
+                    execution_ts=datetime.now(),
+                    check_summary=f"{len(self._report.results)} checks passed",
+                )
+            )
+
         return self
 
     def publish(self) -> WAPSession:
@@ -105,9 +129,10 @@ class WAP:
         WAP(CsvBackend(staging, publish)).table("sales").write(fn).audit([NullCheck("id")]).publish()
     """
 
-    def __init__(self, backend: Backend) -> None:
+    def __init__(self, backend: Backend, signal_store: SignalStore | None = None) -> None:
         self._backend = backend
+        self._signal_store = signal_store
 
     def table(self, table: str) -> WAPSession:
         version_ref = self._backend.create_version(table)
-        return WAPSession(self._backend, table, version_ref)
+        return WAPSession(self._backend, table, version_ref, self._signal_store)
