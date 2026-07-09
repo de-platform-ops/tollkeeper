@@ -194,3 +194,44 @@ class TestBug6PublishWithoutAudit:
         session = WAP(backend).table("t")
         with pytest.raises(RuntimeError, match="Cannot publish without running audit"):
             session.publish()
+
+
+class TestContextManager:
+    def test_context_manager_rolls_back_on_exit(self) -> None:
+        backend = FakeBackend()
+        with WAP(backend).table("t") as session:
+            assert session.ref == "branch-t-001"
+        assert backend.rolled_back == [("t", "branch-t-001")]
+
+    def test_context_manager_noop_after_publish(self) -> None:
+        backend = FakeBackend()
+        with WAP(backend).table("t") as session:
+            session.audit([PassingCheck()]).publish()
+        assert len(backend.rolled_back) == 0
+        assert len(backend.published) == 1
+
+    def test_context_manager_noop_after_rollback(self) -> None:
+        backend = FakeBackend()
+        with WAP(backend).table("t") as session:
+            session.rollback()
+        assert len(backend.rolled_back) == 1
+
+    def test_context_manager_rolls_back_on_exception(self) -> None:
+        backend = FakeBackend()
+        with pytest.raises(ValueError, match="boom"):
+            with WAP(backend).table("t"):
+                raise ValueError("boom")
+        assert backend.rolled_back == [("t", "branch-t-001")]
+
+    def test_context_manager_suppresses_nothing(self) -> None:
+        backend = FakeBackend()
+        with pytest.raises(ValueError):
+            with WAP(backend).table("t"):
+                raise ValueError("should propagate")
+
+    def test_context_manager_with_audit_failure(self) -> None:
+        backend = FakeBackend()
+        with pytest.raises(AuditFailedError):
+            with WAP(backend).table("t") as session:
+                session.audit([FailingCheck()], on_failure="stop")
+        assert len(backend.rolled_back) == 1

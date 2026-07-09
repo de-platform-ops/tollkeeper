@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from write_audit_publish.backends.csv import CsvBackend
@@ -58,3 +59,41 @@ class TestCsvBackend:
         backend = CsvBackend(staging_dir=tmp_path / "staging", publish_dir=tmp_path / "publish")
         refs = {backend.create_version("t") for _ in range(10)}
         assert len(refs) == 10
+
+
+class TestCleanupStaging:
+    def test_removes_old_files(self, tmp_path: Path) -> None:
+        backend = CsvBackend(staging_dir=tmp_path / "staging", publish_dir=tmp_path / "publish")
+        ref = backend.create_version("t")
+        Path(ref).write_text("x\n")
+        old_time = os.path.getmtime(ref) - 7200
+        os.utime(ref, (old_time, old_time))
+
+        removed = backend.cleanup_staging(max_age_seconds=3600)
+        assert len(removed) == 1
+        assert not Path(ref).exists()
+
+    def test_keeps_recent_files(self, tmp_path: Path) -> None:
+        backend = CsvBackend(staging_dir=tmp_path / "staging", publish_dir=tmp_path / "publish")
+        ref = backend.create_version("t")
+        Path(ref).write_text("x\n")
+
+        removed = backend.cleanup_staging(max_age_seconds=3600)
+        assert len(removed) == 0
+        assert Path(ref).exists()
+
+    def test_no_staging_dir_returns_empty(self, tmp_path: Path) -> None:
+        backend = CsvBackend(staging_dir=tmp_path / "nonexistent", publish_dir=tmp_path / "publish")
+        assert backend.cleanup_staging() == []
+
+    def test_ignores_non_wap_files(self, tmp_path: Path) -> None:
+        staging = tmp_path / "staging"
+        staging.mkdir()
+        (staging / "other.csv").write_text("x\n")
+        old_time = (staging / "other.csv").stat().st_mtime - 7200
+        os.utime(staging / "other.csv", (old_time, old_time))
+
+        backend = CsvBackend(staging_dir=staging, publish_dir=tmp_path / "publish")
+        removed = backend.cleanup_staging(max_age_seconds=3600)
+        assert len(removed) == 0
+        assert (staging / "other.csv").exists()

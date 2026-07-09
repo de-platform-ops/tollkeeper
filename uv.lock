@@ -1450,9 +1450,17 @@ wheels = [
 name = "write-audit-publish"
 version = "0.1.0"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+all = [
     { name = "polars" },
     { name = "pyiceberg" },
+]
+iceberg = [
+    { name = "pyiceberg" },
+]
+polars = [
+    { name = "polars" },
 ]
 
 [package.dev-dependencies]
@@ -1463,6 +1471,7 @@ dev = [
     { name = "ruff" },
     { name = "sqlalchemy" },
     { name = "ty" },
+    { name = "write-audit-publish", extra = ["all"] },
 ]
 docs = [
     { name = "mkdocs" },
@@ -1472,9 +1481,11 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "polars", specifier = ">=1.0.0" },
-    { name = "pyiceberg", specifier = ">=0.9.0" },
+    { name = "polars", marker = "extra == 'polars'", specifier = ">=1.0.0" },
+    { name = "pyiceberg", marker = "extra == 'iceberg'", specifier = ">=0.9.0" },
+    { name = "write-audit-publish", extras = ["polars", "iceberg"], marker = "extra == 'all'" },
 ]
+provides-extras = ["polars", "iceberg", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1484,6 +1495,7 @@ dev = [
     { name = "ruff", specifier = ">=0.11" },
     { name = "sqlalchemy", specifier = ">=2.0.51" },
     { name = "ty", specifier = ">=0.0.1" },
+    { name = "write-audit-publish", extras = ["all"] },
 ]
 docs = [
     { name = "mkdocs", specifier = ">=1.6" },

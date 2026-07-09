@@ -70,6 +70,17 @@ class WAPSession:
                 pass
             self._rolled_back = True
 
+    def __enter__(self) -> WAPSession:
+        return self
+
+    def __exit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: object) -> None:
+        if not self._published and not self._rolled_back:
+            try:
+                self._backend.rollback_version(self._table, self._version_ref)
+            except Exception:
+                pass
+            self._rolled_back = True
+
     @property
     def ref(self) -> str:
         return self._version_ref
