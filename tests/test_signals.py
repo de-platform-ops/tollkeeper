@@ -4,36 +4,10 @@ import sqlite3
 
 import pytest
 
-from write_audit_publish import WAP, AuditFailedError, BaseCheck, CheckResult
-from write_audit_publish.backends.base import Backend
+from write_audit_publish import WAP, AuditFailedError
 from write_audit_publish.signals import DbApiSignalStore, Signal, SqliteSignalStore
 
-
-class FakeBackend(Backend):
-    def __init__(self) -> None:
-        self.created: list[str] = []
-        self.published: list[tuple[str, str]] = []
-        self.rolled_back: list[tuple[str, str]] = []
-
-    def create_version(self, table: str) -> str:
-        self.created.append(table)
-        return f"branch-{table}-001"
-
-    def publish_version(self, table: str, version_ref: str) -> None:
-        self.published.append((table, version_ref))
-
-    def rollback_version(self, table: str, version_ref: str) -> None:
-        self.rolled_back.append((table, version_ref))
-
-
-class PassingCheck(BaseCheck):
-    def run(self, version_ref: str) -> CheckResult:
-        return CheckResult(check_name=self.name, passed=True)
-
-
-class FailingCheck(BaseCheck):
-    def run(self, version_ref: str) -> CheckResult:
-        return CheckResult(check_name=self.name, passed=False, details="row count is 0")
+from .conftest import FailingCheck, FakeBackend, PassingCheck
 
 
 def _make_sqlite_store(tmp_path, suffix=""):
