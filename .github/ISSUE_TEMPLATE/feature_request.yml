@@ -24,3 +24,11 @@ body:
       description: Rough sketch of the API or approach, if you have one.
     validations:
       required: false
+
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: Are you willing to submit PR?
+      description: This is absolutely not required, but we are happy to guide you in the contribution process.
+      options:
+        - label: Yes I am willing to submit a PR!
