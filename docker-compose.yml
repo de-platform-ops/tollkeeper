@@ -1,0 +1,8 @@
+services:
+  test:
+    build: .
+    volumes:
+      - ./src:/opt/wap/src
+      - ./tests:/opt/wap/tests
+      - ./packages:/opt/wap/packages
+      - ./test_dags:/opt/wap/test_dags
