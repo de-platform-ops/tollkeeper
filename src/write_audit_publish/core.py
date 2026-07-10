@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from write_audit_publish.backends.base import Backend
@@ -113,6 +113,7 @@ class WAPSession:
         on_failure: str = "stop",
         on_notify: Callable[[str, str, list[CheckResult]], None] | None = None,
         execution_ctx: dict | None = None,
+        conn: Any | None = None,
     ) -> WAPSession:
         if on_failure not in ("stop", "continue"):
             raise ValueError("on_failure must be 'stop' or 'continue'")
@@ -120,7 +121,7 @@ class WAPSession:
         if self._signal_store:
             self._signal_store.delete(self._table, execution_ctx)
 
-        self._report.results.extend(check.run(self._version_ref) for check in checks)
+        self._report.results.extend(check.run(self._version_ref, conn=conn) for check in checks)
         self._audited = True
 
         if self._report.failed:
