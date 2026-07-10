@@ -1,0 +1,53 @@
+[project]
+name = "airflow-wap"
+version = "0.1.0"
+description = "Airflow operator wrapper for write-audit-publish"
+readme = "README.md"
+authors = [
+    { name = "Sadha Chilukoori", email = "srchilukoori@gmail.com" }
+]
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+dependencies = [
+    "write-audit-publish>=0.1.0",
+    "apache-airflow>=2.9",
+]
+
+[project.optional-dependencies]
+spark = ["apache-airflow-providers-apache-spark>=4.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/airflow_wap"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=airflow_wap --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["airflow_wap"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[tool.uv.sources]
+write-audit-publish = { path = "../.." }
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

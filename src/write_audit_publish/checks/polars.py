@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import polars as pl
 
 from write_audit_publish.checks.base import BaseCheck, CheckResult
@@ -15,7 +17,7 @@ class NullCheck(BaseCheck):
     def __init__(self, column: str) -> None:
         self._column = column
 
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         df = pl.scan_csv(version_ref).collect()
         null_count = df[self._column].null_count()
         return CheckResult(
@@ -35,7 +37,7 @@ class RowCountCheck(BaseCheck):
     def __init__(self, min_rows: int) -> None:
         self._min_rows = min_rows
 
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         df = pl.scan_csv(version_ref).collect()
         count = len(df)
         return CheckResult(
@@ -65,7 +67,7 @@ class ExpressionCheck(BaseCheck):
     def name(self) -> str:
         return self._name
 
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         df = pl.scan_csv(version_ref).collect()
         violations = df.filter(~self._expr)
         return CheckResult(
@@ -98,7 +100,7 @@ class SqlCheck(BaseCheck):
     def name(self) -> str:
         return self._name
 
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         df = pl.scan_csv(version_ref).collect()
         ctx = pl.SQLContext({"data": df})
         violations = ctx.execute(f"SELECT * FROM data WHERE NOT ({self._condition})").collect()
@@ -123,7 +125,7 @@ class UniqueCheck(BaseCheck):
     def __init__(self, columns: list[str]) -> None:
         self._columns = columns
 
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         df = pl.scan_csv(version_ref).collect()
         duplicates = df.group_by(self._columns).len().filter(pl.col("len") > 1)
         return CheckResult(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from write_audit_publish import BaseCheck, CheckResult
 from write_audit_publish.backends.base import Backend
 
@@ -33,10 +35,10 @@ class BrokenRollbackBackend(Backend):
 
 
 class PassingCheck(BaseCheck):
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         return CheckResult(check_name=self.name, passed=True)
 
 
 class FailingCheck(BaseCheck):
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         return CheckResult(check_name=self.name, passed=False, details="row count is 0")

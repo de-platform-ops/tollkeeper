@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -32,11 +33,13 @@ class BaseCheck(ABC):
         return self.__class__.__name__
 
     @abstractmethod
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         """Execute the check against the given version reference.
 
         Args:
             version_ref: Backend-specific reference to the staged data.
+            conn: Optional engine connection for remote check execution.
+                When ``None``, checks run in-process.
 
         Returns:
             A ``CheckResult`` indicating pass/fail with details.
