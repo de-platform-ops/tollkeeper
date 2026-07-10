@@ -4,23 +4,69 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-Isolate pipeline writes into versioned staging, gate promotion on data quality checks, and publish to production only when checks pass.
+A Python library that implements the **Write-Audit-Publish** pattern for data pipelines. Stage writes in isolation, run data quality checks, and promote to production only when checks pass.
 
-## Why
+---
 
-Data pipelines that write directly to production tables are fragile. A bad upstream transformation can corrupt production data before anyone notices. The write-audit-publish (WAP) pattern solves this by staging writes in isolation, running data quality checks, and only promoting to production when all checks pass.
+## Table of Contents
 
-`write-audit-publish` codifies this pattern into a Python library with a fluent API and pluggable backends.
+- [Why WAP?](#why-wap)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [How It Works](#how-it-works)
+- [Data Quality Checks](#data-quality-checks)
+- [Backends](#backends)
+- [Signal Store](#signal-store)
+- [SQL Lineage Parser](#sql-lineage-parser)
+- [Airflow Integration](#airflow-integration)
+- [API Reference](#api-reference)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Install
+## Why WAP?
+
+Data pipelines that write directly to production tables are fragile. A bad upstream transformation can corrupt production data before anyone notices. The WAP pattern solves this:
+
+```
+                       ┌─── DQ pass ───► Publish to production
+Raw data ──► Staging ──┤
+                       └─── DQ fail ───► Rollback (production untouched)
+```
+
+`write-audit-publish` codifies this into a Python library with a fluent API, pluggable backends, and optional Airflow integration.
+
+## Features
+
+- **Zero runtime dependencies** in core, optional extras for Polars, Iceberg, sqlglot
+- **Fluent API** with method chaining and context manager support
+- **Pluggable backends**: CsvBackend, IcebergBackend, or implement your own
+- **Pluggable DQ engine**: 5 built-in Polars checks, or bring your own (Pandas, Presto, etc.)
+- **Hard and soft failure modes**: halt-and-rollback or publish-with-notification
+- **Signal store**: cross-pipeline coordination via SQLite or any DB-API 2.0 database
+- **SQL lineage parser**: automatic source/sink extraction from SQL using sqlglot
+- **Airflow integration**: `airflow-wap` package with WAPOperator, WAPSensor, strategy registry
+
+## Installation
 
 ```bash
-pip install write-audit-publish
+pip install write-audit-publish                # core only (zero deps)
+pip install "write-audit-publish[polars]"       # + Polars DQ checks
+pip install "write-audit-publish[iceberg]"      # + PyIceberg backend
+pip install "write-audit-publish[sql]"          # + sqlglot lineage parser
+pip install "write-audit-publish[all]"          # everything
+```
+
+For Airflow integration:
+
+```bash
+pip install airflow-wap
 ```
 
 Requires Python 3.11+.
 
-## Quick start
+## Quick Start
 
 ```python
 import shutil
@@ -39,33 +85,46 @@ backend = CsvBackend(staging_dir=Path("/tmp/wap"), publish_dir=Path("/data/outpu
 
 If any check fails, the staged file is rolled back automatically. Production is never touched.
 
-## How it works
+### Context manager
+
+```python
+with WAP(backend).table("sales") as session:
+    session.write(lambda ref: shutil.copy("upstream_output.csv", ref))
+    session.audit([NullCheck("id")])
+    session.publish()
+# Auto-rollback on exception or if publish() was never called
+```
+
+## How It Works
 
 ```
-Upstream CSV ──► staging copy (renamed) ──► DQ checks ──► publish to final path
-                                                       ──► or rollback (delete staging)
+┌──────────────────────────────────────────────────────────────────┐
+│                        WAP Lifecycle                             │
+│                                                                  │
+│  1. WRITE     Your callback writes to an isolated staging ref    │
+│  2. AUDIT     DQ checks run against staged data                  │
+│  3. PUBLISH   On pass: staging promoted to production            │
+│  4. ROLLBACK  On fail: staging discarded, production untouched   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-1. **write**: Your callback copies upstream data into the staging location
-2. **audit**: DQ checks run against the staged data using the configured engine (Polars, SQL, etc.)
-3. **publish**: If checks pass, staging is promoted to the final destination
-4. **rollback**: If checks fail (hard mode), staging is deleted automatically
+The lifecycle is backend-agnostic. For CSV files, "staging" is a temp file and "publish" is a rename. For Iceberg, "staging" is a branch and "publish" is a fast-forward merge.
 
-## Data quality checks
+## Data Quality Checks
 
-Five built-in checks using Polars as the DQ engine:
+Five built-in checks using Polars (install with `[polars]` extra):
 
 | Check | Constructor | Passes when |
 |-------|-------------|-------------|
 | `NullCheck` | `NullCheck("column")` | No nulls in column |
 | `RowCountCheck` | `RowCountCheck(min_rows=100)` | Row count >= threshold |
-| `ExpressionCheck` | `ExpressionCheck("name", pl.col("age") > 0)` | All rows satisfy the Polars expression |
-| `SqlCheck` | `SqlCheck("name", "age > 0 AND score >= 0")` | All rows satisfy the SQL WHERE condition |
-| `UniqueCheck` | `UniqueCheck(["region", "date"])` | No duplicate groups on the given columns |
+| `ExpressionCheck` | `ExpressionCheck("name", pl.col("age") > 0)` | All rows match the Polars expression |
+| `SqlCheck` | `SqlCheck("name", "age > 0 AND score >= 0")` | All rows match the SQL WHERE condition |
+| `UniqueCheck` | `UniqueCheck(["region", "date"])` | No duplicate groups on given columns |
 
 ### Custom checks
 
-Subclass `BaseCheck` to create checks with any engine (Pandas, Presto, etc.):
+Subclass `BaseCheck` to create checks with any engine:
 
 ```python
 from write_audit_publish import BaseCheck, CheckResult
@@ -74,7 +133,7 @@ class SchemaCheck(BaseCheck):
     def __init__(self, expected_columns: list[str]) -> None:
         self._expected = expected_columns
 
-    def run(self, version_ref: str) -> CheckResult:
+    def run(self, version_ref: str, *, conn=None) -> CheckResult:
         import polars as pl
         df = pl.read_csv(version_ref)
         missing = set(self._expected) - set(df.columns)
@@ -87,73 +146,146 @@ class SchemaCheck(BaseCheck):
 
 ### Soft failures
 
-Pass `on_failure="continue"` to publish despite failed checks, with an optional notification callback:
+Publish despite failed checks with an optional notification callback:
 
 ```python
-(WAP(backend)
-    .table("sales")
-    .write(lambda ref: shutil.copy(src, ref))
-    .audit(
-        [RowCountCheck(min_rows=1000)],
-        on_failure="continue",
-        on_notify=lambda table, ref, failed: log.warning(f"{table}@{ref}: {failed}"),
-    )
-    .publish())
+session.audit(
+    [RowCountCheck(min_rows=1000)],
+    on_failure="continue",
+    on_notify=lambda table, ref, failed: log.warning(f"{table}@{ref}: {failed}"),
+)
 ```
 
-## API
+## Backends
 
-### `WAP(backend)`
+| Backend | Extra | Description |
+|---------|-------|-------------|
+| `CsvBackend` | none | Local CSV files with staging/publish directories |
+| `IcebergBackend` | `[iceberg]` | Branch-based versioning with pointer-swap publish via PyIceberg |
+| Custom | none | Implement the `Backend` ABC: `create_version`, `publish_version`, `rollback_version` |
 
-Entry point. Takes a `Backend` instance.
+## Signal Store
 
-- `.table(name)` creates an isolated staging version and returns a `WAPSession`.
+Coordinate across pipelines by tracking table readiness:
+
+```python
+from write_audit_publish import WAP, SqliteSignalStore
+
+signal_store = SqliteSignalStore("/tmp/signals.db")
+wap = WAP(backend, signal_store=signal_store)
+
+# After successful audit+publish, a signal is emitted automatically.
+# Downstream pipelines can check:
+signal = signal_store.check("sales", {"ds": "2026-01-15"})
+```
+
+| Store | Description |
+|-------|-------------|
+| `SqliteSignalStore` | File-based, zero-config, good for single-machine pipelines |
+| `DbApiSignalStore` | Any DB-API 2.0 connection (Postgres, MySQL, etc.) |
+
+## SQL Lineage Parser
+
+Automatically extract source and sink tables from SQL (install with `[sql]` extra):
+
+```python
+from write_audit_publish import extract_lineage
+
+result = extract_lineage(
+    "INSERT INTO warehouse.fact_orders SELECT * FROM staging.raw_orders JOIN dim_date USING (dt)",
+    dialect="trino",
+)
+
+print(result.sources)  # {'staging.raw_orders', 'dim_date'}
+print(result.sinks)    # {'warehouse.fact_orders'}
+```
+
+Handles CTEs (excluded from sources), schema/catalog-qualified names, INSERT/CTAS/MERGE, multi-statement SQL, and subqueries. Supports Spark, Trino, and Snowflake dialects. Rejects Jinja-templated SQL with a clear error.
+
+## Airflow Integration
+
+The `airflow-wap` package wraps any Airflow operator in a WAP lifecycle:
+
+```python
+from airflow_wap import WAPOperator
+
+wap_task = WAPOperator(
+    task_id="wap_load_orders",
+    operator=sql_operator,          # any BaseOperator
+    table="warehouse.fact_orders",
+    backend=iceberg_backend,
+    checks=[NullCheck("order_id"), RowCountCheck(min_rows=1)],
+    engine="local",
+)
+```
+
+- **WAPOperator**: wraps any operator with write-audit-publish lifecycle
+- **WAPSensor**: gates downstream tasks on upstream WAP signal completion
+- **Strategy registry**: maps operator types to WAP redirect logic; unknown operators pass through unchanged
+
+Requires `apache-airflow>=2.9`.
+
+## API Reference
+
+### `WAP(backend, signal_store=None)`
+
+Entry point. Takes a `Backend` and optional `SignalStore`.
+
+- `.table(name) -> WAPSession`: creates an isolated staging version
 
 ### `WAPSession`
 
-Returned by `.table()`. Supports fluent chaining:
+Returned by `.table()`. Supports fluent chaining and context manager:
 
 | Method | Description |
 |--------|-------------|
-| `.write(fn)` | Calls `fn(version_ref)` so your code writes to the staged version |
-| `.audit(checks, *, on_failure="stop", on_notify=None)` | Runs checks against the staged version |
-| `.publish()` | Promotes the staged version to production |
-| `.rollback()` | Discards the staged version |
+| `.write(fn)` | Calls `fn(version_ref)` to write to the staged version |
+| `.audit(checks, *, on_failure, on_notify, execution_ctx, conn)` | Run DQ checks against staged data |
+| `.publish()` | Promote staged version to production |
+| `.rollback()` | Discard staged version |
 | `.ref` | The version reference string |
 | `.report` | `CheckReport` with `.passed`, `.failed`, `.results` |
 
 ### `Backend` (ABC)
 
-Implement for your storage layer:
-
 | Method | Purpose |
 |--------|---------|
-| `create_version(table) -> str` | Create isolated staging version, return a reference |
-| `publish_version(table, ref)` | Promote staged version to production |
-| `rollback_version(table, ref)` | Discard staged version |
+| `create_version(table) -> str` | Create isolated staging, return a reference |
+| `publish_version(table, ref)` | Promote to production |
+| `rollback_version(table, ref)` | Discard staging |
 
 ### `BaseCheck` (ABC)
 
-Implement `run(version_ref) -> CheckResult` for each data quality check. The DQ engine is decoupled from the storage backend.
-
-## Backends
-
-| Backend | Status | Description |
-|---------|--------|-------------|
-| `CsvBackend` | Available | Local CSV files with staging/publish directories |
-| Iceberg | Planned | Branch-based versioning with pointer-swap publish |
-| Delta Lake | Planned | |
+| Method | Purpose |
+|--------|---------|
+| `run(version_ref, *, conn=None) -> CheckResult` | Execute a data quality check |
 
 ## Development
 
 ```bash
 git clone https://github.com/srchilukoori/write-audit-publish.git
 cd write-audit-publish
-uv sync --group dev --group docs
-uv run pytest tests/ -v
+uv sync --all-extras --group dev --group docs
+
+# Run tests
+uv run pytest tests/ -v                                    # core tests
+cd packages/airflow-wap && uv run pytest tests/ -v         # airflow tests
+
+# Lint and type check
 uv run ruff check src/ tests/
-uv run mkdocs serve        # local docs at http://127.0.0.1:8000
+uv run ruff format --check src/ tests/
+uv run ty check src/
+
+# Docs
+uv run mkdocs serve    # http://127.0.0.1:8000
+
+# Docker (integration tests with Airflow)
+docker compose run test
 ```
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
