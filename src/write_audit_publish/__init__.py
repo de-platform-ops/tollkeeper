@@ -34,3 +34,10 @@ try:
     __all__ += ["ExpressionCheck", "NullCheck", "RowCountCheck", "SqlCheck", "UniqueCheck"]
 except ImportError:
     pass
+
+try:
+    from write_audit_publish.parser import ParseResult, extract_lineage
+
+    __all__ += ["ParseResult", "extract_lineage"]
+except ImportError:
+    pass

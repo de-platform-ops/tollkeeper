@@ -13,7 +13,8 @@ dependencies = []
 [project.optional-dependencies]
 polars = ["polars>=1.0.0"]
 iceberg = ["pyiceberg>=0.9.0"]
-all = ["write-audit-publish[polars,iceberg]"]
+sql = ["sqlglot>=26.0"]
+all = ["write-audit-publish[polars,iceberg,sql]"]
 
 [dependency-groups]
 dev = [

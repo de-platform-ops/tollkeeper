@@ -3357,9 +3357,10 @@ source = { directory = "../../" }
 requires-dist = [
     { name = "polars", marker = "extra == 'polars'", specifier = ">=1.0.0" },
     { name = "pyiceberg", marker = "extra == 'iceberg'", specifier = ">=0.9.0" },
-    { name = "write-audit-publish", extras = ["polars", "iceberg"], marker = "extra == 'all'" },
+    { name = "sqlglot", marker = "extra == 'sql'", specifier = ">=26.0" },
+    { name = "write-audit-publish", extras = ["polars", "iceberg", "sql"], marker = "extra == 'all'" },
 ]
-provides-extras = ["polars", "iceberg", "all"]
+provides-extras = ["polars", "iceberg", "sql", "all"]
 
 [package.metadata.requires-dev]
 dev = [
