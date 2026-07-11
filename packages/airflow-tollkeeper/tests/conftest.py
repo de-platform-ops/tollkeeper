@@ -4,11 +4,11 @@ from datetime import datetime
 from typing import Any
 
 import pytest
-from airflow_wap.compat import BaseOperator, DAG
+from airflow_tollkeeper.compat import BaseOperator, DAG
 
-from airflow_wap.strategy import WAPStrategy, strategy_registry
-from write_audit_publish.backends.base import Backend
-from write_audit_publish.checks.base import BaseCheck, CheckResult
+from airflow_tollkeeper.strategy import TollkeeperStrategy, strategy_registry
+from tollkeeper.backends.base import Backend
+from tollkeeper.checks.base import BaseCheck, CheckResult
 
 
 class FakeBackend(Backend):
@@ -42,7 +42,7 @@ class FakeOperator(BaseOperator):
         self.executed = True
 
 
-class FakeStrategy(WAPStrategy):
+class FakeStrategy(TollkeeperStrategy):
     def __init__(self) -> None:
         self._original_task_id: str | None = None
 

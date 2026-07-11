@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from airflow_wap.compat import BaseSensorOperator
+from airflow_tollkeeper.compat import BaseSensorOperator
 
 if TYPE_CHECKING:
-    from write_audit_publish.signals.base import SignalStore
+    from tollkeeper.signals.base import SignalStore
 
 
-class WAPSensor(BaseSensorOperator):
+class TollkeeperSensor(BaseSensorOperator):
     """Pokes a SignalStore until a table's audit signal appears.
 
-    Use this to gate downstream tasks on upstream WAP publish completion,
+    Use this to gate downstream tasks on upstream Tollkeeper publish completion,
     decoupling downstream from the upstream task's Airflow state.
     """
 

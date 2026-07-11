@@ -1,7 +1,7 @@
 """Integration tests for parser + Airflow DAG construction.
 
 These tests require apache-airflow and sqlglot installed (run inside Docker
-or with the airflow-wap dev environment). Skipped automatically when either
+or with the airflow-tollkeeper dev environment). Skipped automatically when either
 dependency is missing.
 """
 
@@ -13,8 +13,8 @@ from unittest.mock import MagicMock
 import pytest
 
 try:
-    from airflow_wap.compat import DAG, BaseOperator
-    from write_audit_publish.parser import extract_lineage
+    from airflow_tollkeeper.compat import DAG, BaseOperator
+    from tollkeeper.parser import extract_lineage
 
     HAS_DEPS = True
 except ImportError:
@@ -159,9 +159,9 @@ class TestLineageDrivenDependencies:
         assert set(publish_task.upstream_task_ids) == {"write"}
         assert set(sql_task.downstream_task_ids) == {f"publish_{list(result.sinks)[0]}"}
 
-    def test_full_wap_chain(self):
+    def test_full_tollkeeper_chain(self):
         """Full chain: sensors >> write >> audit >> publish, all derived from SQL lineage."""
-        dag = _make_dag("full_wap")
+        dag = _make_dag("full_tollkeeper")
         sql = """
         INSERT INTO warehouse.daily_metrics
         SELECT d.dt, SUM(t.amount)
@@ -206,12 +206,12 @@ class TestLineageDrivenDependencies:
 
 
 # ---------------------------------------------------------------------------
-# Integration: WAPOperator + parser end-to-end
+# Integration: TollkeeperOperator + parser end-to-end
 # ---------------------------------------------------------------------------
 
 
-class TestWAPOperatorWithParser:
-    """Parser-informed WAPOperator execution — the full vertical slice."""
+class TestTollkeeperOperatorWithParser:
+    """Parser-informed TollkeeperOperator execution — the full vertical slice."""
 
     def test_operator_executes_with_parsed_lineage(self):
         """Parse lineage, wire deps, execute the operator — no crash."""

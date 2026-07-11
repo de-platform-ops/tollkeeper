@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from airflow_wap import WAPSensor
-from airflow_wap.compat import DAG
-from write_audit_publish.signals.base import Signal
-from write_audit_publish.signals.sqlite import SqliteSignalStore
+from airflow_tollkeeper import TollkeeperSensor
+from airflow_tollkeeper.compat import DAG
+from tollkeeper.signals.base import Signal
+from tollkeeper.signals.sqlite import SqliteSignalStore
 
 
-class TestWAPSensor:
+class TestTollkeeperSensor:
     def test_poke_returns_false_when_no_signal(self, tmp_path):
         store = SqliteSignalStore(str(tmp_path / "signals.db"))
         dag = DAG(dag_id="test_dag", start_date=datetime(2026, 1, 1))
 
-        sensor = WAPSensor(
+        sensor = TollkeeperSensor(
             task_id="wait_for_sales",
             table="sales",
             signal_store=store,
@@ -26,7 +26,7 @@ class TestWAPSensor:
         store.write(Signal(table_name="sales", status="passed"))
         dag = DAG(dag_id="test_dag", start_date=datetime(2026, 1, 1))
 
-        sensor = WAPSensor(
+        sensor = TollkeeperSensor(
             task_id="wait_for_sales",
             table="sales",
             signal_store=store,
@@ -40,7 +40,7 @@ class TestWAPSensor:
         store.write(Signal(table_name="sales", execution_ctx=ctx, status="passed"))
         dag = DAG(dag_id="test_dag", start_date=datetime(2026, 1, 1))
 
-        sensor = WAPSensor(
+        sensor = TollkeeperSensor(
             task_id="wait_for_sales",
             table="sales",
             signal_store=store,
@@ -54,7 +54,7 @@ class TestWAPSensor:
         store.write(Signal(table_name="sales", execution_ctx={"ds": "2026-07-09"}, status="passed"))
         dag = DAG(dag_id="test_dag", start_date=datetime(2026, 1, 1))
 
-        sensor = WAPSensor(
+        sensor = TollkeeperSensor(
             task_id="wait_for_sales",
             table="sales",
             signal_store=store,

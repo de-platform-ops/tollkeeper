@@ -18,7 +18,7 @@ def resolve_engine(engine: str | None = None, engine_conn_id: str | None = None)
     Args:
         engine: Engine keyword (e.g. ``"spark"``, ``"local"``).
             Keywords other than ``"local"`` resolve to an Airflow connection
-            named ``wap_engine_{keyword}``.
+            named ``tollkeeper_engine_{keyword}``.
         engine_conn_id: Explicit Airflow connection ID, overrides ``engine``.
 
     Returns:
@@ -42,5 +42,5 @@ def resolve_engine(engine: str | None = None, engine_conn_id: str | None = None)
 
     from airflow.hooks.base import BaseHook
 
-    conn_id = f"wap_engine_{engine}"
+    conn_id = f"tollkeeper_engine_{engine}"
     return BaseHook.get_connection(conn_id)
