@@ -1,14 +1,14 @@
-from write_audit_publish.backends.base import Backend
-from write_audit_publish.backends.csv import CsvBackend
-from write_audit_publish.checks.base import BaseCheck, CheckResult
-from write_audit_publish.core import WAP, AuditFailedError, CheckReport, WAPSession
-from write_audit_publish.signals.base import Signal, SignalStore
-from write_audit_publish.signals.dbapi import DbApiSignalStore
-from write_audit_publish.signals.sqlite import SqliteSignalStore
+from tollkeeper.backends.base import Backend
+from tollkeeper.backends.csv import CsvBackend
+from tollkeeper.checks.base import BaseCheck, CheckResult
+from tollkeeper.core import Tollkeeper, AuditFailedError, CheckReport, TollkeeperSession
+from tollkeeper.signals.base import Signal, SignalStore
+from tollkeeper.signals.dbapi import DbApiSignalStore
+from tollkeeper.signals.sqlite import SqliteSignalStore
 
 __all__ = [
-    "WAP",
-    "WAPSession",
+    "Tollkeeper",
+    "TollkeeperSession",
     "CheckReport",
     "AuditFailedError",
     "Backend",
@@ -22,21 +22,21 @@ __all__ = [
 ]
 
 try:
-    from write_audit_publish.backends.iceberg import IcebergBackend
+    from tollkeeper.backends.iceberg import IcebergBackend
 
     __all__ += ["IcebergBackend"]
 except ImportError:
     pass
 
 try:
-    from write_audit_publish.checks.polars import ExpressionCheck, NullCheck, RowCountCheck, SqlCheck, UniqueCheck
+    from tollkeeper.checks.polars import ExpressionCheck, NullCheck, RowCountCheck, SqlCheck, UniqueCheck
 
     __all__ += ["ExpressionCheck", "NullCheck", "RowCountCheck", "SqlCheck", "UniqueCheck"]
 except ImportError:
     pass
 
 try:
-    from write_audit_publish.parser import ParseResult, extract_lineage
+    from tollkeeper.parser import ParseResult, extract_lineage
 
     __all__ += ["ParseResult", "extract_lineage"]
 except ImportError:

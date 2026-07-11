@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-from write_audit_publish.backends.base import Backend
+from tollkeeper.backends.base import Backend
 
 
 def _move(src: Path, dst: Path) -> None:
@@ -18,7 +18,7 @@ def _move(src: Path, dst: Path) -> None:
 
 
 class CsvBackend(Backend):
-    """WAP backend for local CSV files.
+    """Tollkeeper backend for local CSV files.
 
     Stages data as a temporary CSV in ``staging_dir``, then copies to
     ``publish_dir`` on publish or deletes on rollback.
@@ -29,8 +29,8 @@ class CsvBackend(Backend):
 
     Example::
 
-        backend = CsvBackend(staging_dir=Path("/tmp/wap"), publish_dir=Path("/data/output"))
-        WAP(backend).table("sales").write(lambda ref: shutil.copy(src, ref)).audit([...]).publish()
+        backend = CsvBackend(staging_dir=Path("/tmp/tollkeeper"), publish_dir=Path("/data/output"))
+        Tollkeeper(backend).table("sales").write(lambda ref: shutil.copy(src, ref)).audit([...]).publish()
     """
 
     def __init__(self, staging_dir: Path, publish_dir: Path) -> None:
@@ -39,7 +39,7 @@ class CsvBackend(Backend):
 
     def create_version(self, table: str) -> str:
         self._staging_dir.mkdir(parents=True, exist_ok=True)
-        staging_path = self._staging_dir / f"{table}.wap-{uuid4().hex[:8]}.csv"
+        staging_path = self._staging_dir / f"{table}.tollkeeper-{uuid4().hex[:8]}.csv"
         return str(staging_path)
 
     def publish_version(self, table: str, version_ref: str) -> None:
@@ -50,7 +50,7 @@ class CsvBackend(Backend):
         Path(version_ref).unlink(missing_ok=True)
 
     def cleanup_staging(self, max_age_seconds: float = 3600) -> list[Path]:
-        """Remove WAP staging files older than ``max_age_seconds``.
+        """Remove Tollkeeper staging files older than ``max_age_seconds``.
 
         Args:
             max_age_seconds: Maximum age in seconds before a staging file is considered orphaned.
@@ -62,7 +62,7 @@ class CsvBackend(Backend):
             return []
         cutoff = time.time() - max_age_seconds
         removed: list[Path] = []
-        for p in self._staging_dir.glob("*.wap-*.csv"):
+        for p in self._staging_dir.glob("*.tollkeeper-*.csv"):
             if p.stat().st_mtime < cutoff:
                 p.unlink()
                 removed.append(p)

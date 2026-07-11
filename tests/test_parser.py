@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from write_audit_publish.parser import extract_lineage
+from tollkeeper.parser import extract_lineage
 
 
 # ---------------------------------------------------------------------------

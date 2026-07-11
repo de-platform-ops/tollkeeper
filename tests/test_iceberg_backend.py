@@ -4,7 +4,7 @@ import pyarrow as pa
 import pytest
 from pyiceberg.catalog.sql import SqlCatalog
 
-from write_audit_publish.backends.iceberg import IcebergBackend
+from tollkeeper.backends.iceberg import IcebergBackend
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ class TestIcebergBackend:
     def test_create_version_returns_branch_name(self, seeded_catalog) -> None:
         backend = IcebergBackend(seeded_catalog)
         ref = backend.create_version("db.sales")
-        assert ref.startswith("wap-")
+        assert ref.startswith("tollkeeper-")
         tbl = seeded_catalog.load_table("db.sales")
         assert ref in tbl.refs()
 
@@ -63,7 +63,7 @@ class TestIcebergBackend:
 
     def test_rollback_missing_branch_is_noop(self, seeded_catalog) -> None:
         backend = IcebergBackend(seeded_catalog)
-        backend.rollback_version("db.sales", "wap-nonexistent")
+        backend.rollback_version("db.sales", "tollkeeper-nonexistent")
 
     def test_unique_refs_per_call(self, seeded_catalog) -> None:
         backend = IcebergBackend(seeded_catalog)

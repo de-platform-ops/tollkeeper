@@ -2,7 +2,7 @@ services:
   test:
     build: .
     volumes:
-      - ./src:/opt/wap/src
-      - ./tests:/opt/wap/tests
-      - ./packages:/opt/wap/packages
-      - ./test_dags:/opt/wap/test_dags
+      - ./src:/opt/tollkeeper/src
+      - ./tests:/opt/tollkeeper/tests
+      - ./packages:/opt/tollkeeper/packages
+      - ./test_dags:/opt/tollkeeper/test_dags

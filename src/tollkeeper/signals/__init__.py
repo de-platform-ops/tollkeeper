@@ -1,6 +1,6 @@
-from write_audit_publish.signals.base import Signal, SignalStore
-from write_audit_publish.signals.dbapi import DbApiSignalStore
-from write_audit_publish.signals.sqlite import SqliteSignalStore
+from tollkeeper.signals.base import Signal, SignalStore
+from tollkeeper.signals.dbapi import DbApiSignalStore
+from tollkeeper.signals.sqlite import SqliteSignalStore
 
 __all__ = [
     "DbApiSignalStore",

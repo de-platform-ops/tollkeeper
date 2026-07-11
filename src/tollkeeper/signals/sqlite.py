@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from write_audit_publish.signals.base import Signal, SignalStore
+from tollkeeper.signals.base import Signal, SignalStore
 
 
 class SqliteSignalStore(SignalStore):
@@ -25,7 +25,7 @@ class SqliteSignalStore(SignalStore):
 
     def _init_schema(self) -> None:
         self._conn.executescript("""
-            CREATE TABLE IF NOT EXISTS wap_signals (
+            CREATE TABLE IF NOT EXISTS tollkeeper_signals (
                 table_name    TEXT NOT NULL,
                 execution_ctx TEXT NOT NULL DEFAULT '{}',
                 status        TEXT NOT NULL,
@@ -35,7 +35,7 @@ class SqliteSignalStore(SignalStore):
                 metadata      TEXT DEFAULT '{}',
                 PRIMARY KEY (table_name, execution_ctx)
             );
-            CREATE TABLE IF NOT EXISTS wap_signal_deps (
+            CREATE TABLE IF NOT EXISTS tollkeeper_signal_deps (
                 upstream_table   TEXT NOT NULL,
                 upstream_ctx     TEXT NOT NULL DEFAULT '{}',
                 downstream_table TEXT NOT NULL,
@@ -53,7 +53,7 @@ class SqliteSignalStore(SignalStore):
         ctx_key = self._ctx_key(signal.execution_ctx)
         now = datetime.now().isoformat()
         self._conn.execute(
-            """INSERT INTO wap_signals (table_name, execution_ctx, status, execution_ts, updated_at, check_summary, metadata)
+            """INSERT INTO tollkeeper_signals (table_name, execution_ctx, status, execution_ts, updated_at, check_summary, metadata)
                VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(table_name, execution_ctx) DO UPDATE SET
                    status=excluded.status, execution_ts=excluded.execution_ts,
@@ -74,7 +74,7 @@ class SqliteSignalStore(SignalStore):
     def delete(self, table: str, execution_ctx: dict | None = None) -> None:
         ctx_key = self._ctx_key(execution_ctx)
         self._conn.execute(
-            "DELETE FROM wap_signals WHERE table_name = ? AND execution_ctx = ?",
+            "DELETE FROM tollkeeper_signals WHERE table_name = ? AND execution_ctx = ?",
             (table, ctx_key),
         )
         self._conn.commit()
@@ -88,7 +88,7 @@ class SqliteSignalStore(SignalStore):
     def check(self, table: str, execution_ctx: dict | None = None) -> Signal | None:
         ctx_key = self._ctx_key(execution_ctx)
         row = self._conn.execute(
-            "SELECT * FROM wap_signals WHERE table_name = ? AND execution_ctx = ?",
+            "SELECT * FROM tollkeeper_signals WHERE table_name = ? AND execution_ctx = ?",
             (table, ctx_key),
         ).fetchone()
         if row is None:
@@ -113,7 +113,7 @@ class SqliteSignalStore(SignalStore):
         if cascade_policy not in ("notify", "cascade"):
             raise ValueError("cascade_policy must be 'notify' or 'cascade'")
         self._conn.execute(
-            """INSERT OR REPLACE INTO wap_signal_deps
+            """INSERT OR REPLACE INTO tollkeeper_signal_deps
                (upstream_table, upstream_ctx, downstream_table, downstream_ctx, cascade_policy)
                VALUES (?, ?, ?, ?, ?)""",
             (
@@ -128,7 +128,7 @@ class SqliteSignalStore(SignalStore):
 
     def get_downstream(self, table: str, execution_ctx: dict | None = None) -> list[tuple[str, dict, str]]:
         rows = self._conn.execute(
-            "SELECT downstream_table, downstream_ctx, cascade_policy FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ?",
+            "SELECT downstream_table, downstream_ctx, cascade_policy FROM tollkeeper_signal_deps WHERE upstream_table = ? AND upstream_ctx = ?",
             (table, self._ctx_key(execution_ctx)),
         ).fetchall()
         return [(r["downstream_table"], json.loads(r["downstream_ctx"]), r["cascade_policy"]) for r in rows]
