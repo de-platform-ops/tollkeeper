@@ -1,6 +1,6 @@
-# write-audit-publish
+# tollkeeper
 
-[![CI](https://github.com/srchilukoori/write-audit-publish/actions/workflows/ci.yml/badge.svg)](https://github.com/srchilukoori/write-audit-publish/actions/workflows/ci.yml)
+[![CI](https://github.com/srchilukoori/tollkeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/srchilukoori/tollkeeper/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
@@ -10,7 +10,7 @@ A Python library that implements the **Write-Audit-Publish** pattern for data pi
 
 ## Table of Contents
 
-- [Why WAP?](#why-wap)
+- [Why Tollkeeper?](#why-tollkeeper)
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -25,9 +25,9 @@ A Python library that implements the **Write-Audit-Publish** pattern for data pi
 - [Contributing](#contributing)
 - [License](#license)
 
-## Why WAP?
+## Why Tollkeeper?
 
-Data pipelines that write directly to production tables are fragile. A bad upstream transformation can corrupt production data before anyone notices. The WAP pattern solves this:
+Data pipelines that write directly to production tables are fragile. A bad upstream transformation can corrupt production data before anyone notices. The Write-Audit-Publish pattern solves this:
 
 ```
                        ┌─── DQ pass ───► Publish to production
@@ -35,7 +35,7 @@ Raw data ──► Staging ──┤
                        └─── DQ fail ───► Rollback (production untouched)
 ```
 
-`write-audit-publish` codifies this into a Python library with a fluent API, pluggable backends, and optional Airflow integration.
+`tollkeeper` codifies this into a Python library with a fluent API, pluggable backends, and optional Airflow integration.
 
 ## Features
 
@@ -46,22 +46,22 @@ Raw data ──► Staging ──┤
 - **Hard and soft failure modes**: halt-and-rollback or publish-with-notification
 - **Signal store**: cross-pipeline coordination via SQLite or any DB-API 2.0 database
 - **SQL lineage parser**: automatic source/sink extraction from SQL using sqlglot
-- **Airflow integration**: `airflow-wap` package with WAPOperator, WAPSensor, strategy registry
+- **Airflow integration**: `airflow-tollkeeper` package with WAPOperator, WAPSensor, strategy registry
 
 ## Installation
 
 ```bash
-pip install write-audit-publish                # core only (zero deps)
-pip install "write-audit-publish[polars]"       # + Polars DQ checks
-pip install "write-audit-publish[iceberg]"      # + PyIceberg backend
-pip install "write-audit-publish[sql]"          # + sqlglot lineage parser
-pip install "write-audit-publish[all]"          # everything
+pip install tollkeeper                # core only (zero deps)
+pip install "tollkeeper[polars]"       # + Polars DQ checks
+pip install "tollkeeper[iceberg]"      # + PyIceberg backend
+pip install "tollkeeper[sql]"          # + sqlglot lineage parser
+pip install "tollkeeper[all]"          # everything
 ```
 
 For Airflow integration:
 
 ```bash
-pip install airflow-wap
+pip install airflow-tollkeeper
 ```
 
 Requires Python 3.11+.
@@ -204,7 +204,7 @@ Handles CTEs (excluded from sources), schema/catalog-qualified names, INSERT/CTA
 
 ## Airflow Integration
 
-The `airflow-wap` package wraps any Airflow operator in a WAP lifecycle:
+The `airflow-tollkeeper` package wraps any Airflow operator in a Write-Audit-Publish lifecycle:
 
 ```python
 from airflow_wap import WAPOperator
@@ -263,13 +263,13 @@ Returned by `.table()`. Supports fluent chaining and context manager:
 ## Development
 
 ```bash
-git clone https://github.com/srchilukoori/write-audit-publish.git
-cd write-audit-publish
+git clone https://github.com/srchilukoori/tollkeeper.git
+cd tollkeeper
 uv sync --all-extras --group dev --group docs
 
 # Run tests
 uv run pytest tests/ -v                                    # core tests
-cd packages/airflow-wap && uv run pytest tests/ -v         # airflow tests
+cd packages/airflow-tollkeeper && uv run pytest tests/ -v  # airflow tests
 
 # Lint and type check
 uv run ruff check src/ tests/

@@ -2,7 +2,7 @@
 
 ## Scope
 
-This policy covers the `write-audit-publish` library and the `airflow-wap` package in this repository.
+This policy covers the `tollkeeper` library and the `airflow-tollkeeper` package in this repository.
 
 ## Reporting a vulnerability
 

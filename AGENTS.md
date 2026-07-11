@@ -13,8 +13,8 @@ Use `uv` for everything. Never use pip or venv directly.
 
 ## Directory Structure
 
-- `src/write_audit_publish/` — library source (hatchling src layout)
-  - `core.py` — WAP entry point, WAPSession state machine, CheckReport, AuditFailedError
+- `src/tollkeeper/` — library source (hatchling src layout)
+  - `core.py` — Tollkeeper entry point, TollkeeperSession state machine, CheckReport, AuditFailedError
   - `backends/` — Backend ABC (`base.py`), CsvBackend, IcebergBackend (stub)
   - `checks/` — BaseCheck ABC, CheckResult, Polars DQ checks
   - `signals/` — SignalStore ABC, SqliteSignalStore, DbApiSignalStore
@@ -23,8 +23,8 @@ Use `uv` for everything. Never use pip or venv directly.
 
 ## Architecture
 
-- **Fluent API:** `WAP(backend).table(t).write(fn).audit(checks).publish()`
-- **WAPSession is a state machine.** Transitions: created → written → audited → published/rolled-back. `publish()` and `rollback()` are terminal, idempotent, mutually exclusive. Respect `_published` and `_rolled_back` flags.
+- **Fluent API:** `Tollkeeper(backend).table(t).write(fn).audit(checks).publish()`
+- **TollkeeperSession is a state machine.** Transitions: created → written → audited → published/rolled-back. `publish()` and `rollback()` are terminal, idempotent, mutually exclusive. Respect `_published` and `_rolled_back` flags.
 - **Backend ABC** is the extension point for storage. Do not add storage logic to `core.py`.
 - **BaseCheck ABC** is the extension point for DQ. Each check implements `run(version_ref) -> CheckResult`.
 - **SignalStore is optional.** All signal store code in `core.py` is guarded by `if self._signal_store`.
