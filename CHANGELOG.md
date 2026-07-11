@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial project scaffolding.
-- Write-Audit-Publish core library logic with state machine lifecycle (`WAPSession`).
+- Tollkeeper core library logic with state machine lifecycle (`TollkeeperSession`).
 - `pyiceberg` and `polars` optional dependency integrations.
 - Local CSV and PyIceberg backends for branching, writing, and rolling back.
 - Basic Polars dataframe validation checks.

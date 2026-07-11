@@ -3,15 +3,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from airflow_wap.compat import TaskGroup
-from airflow_wap.operator import WAPOperator
-from airflow_wap.sensor import WAPSensor
+from airflow_tollkeeper.compat import TaskGroup
+from airflow_tollkeeper.operator import TollkeeperOperator
+from airflow_tollkeeper.sensor import TollkeeperSensor
 
 if TYPE_CHECKING:
-    from airflow_wap.compat import BaseOperator, DAG
-    from write_audit_publish.backends.base import Backend
-    from write_audit_publish.checks.base import BaseCheck
-    from write_audit_publish.signals.base import SignalStore
+    from airflow_tollkeeper.compat import BaseOperator, DAG
+    from tollkeeper.backends.base import Backend
+    from tollkeeper.checks.base import BaseCheck
+    from tollkeeper.signals.base import SignalStore
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def _resolve_sources(
     if raw_sql is None:
         return []
 
-    from write_audit_publish.parser import extract_lineage
+    from tollkeeper.parser import extract_lineage
 
     try:
         result = extract_lineage(raw_sql, dialect=dialect)
@@ -51,7 +51,7 @@ def _resolve_sources(
     return list(result.sources)
 
 
-def wap_task_group(
+def tollkeeper_task_group(
     *,
     sql_operator: BaseOperator,
     table: str,
@@ -80,7 +80,7 @@ def wap_task_group(
         raise ValueError(f"Circular dependency: table '{table}' appears in its own sources {resolved_sources}")
 
     table_slug = _slugify(table)
-    gid = group_id or f"wap_{table_slug}"
+    gid = group_id or f"tollkeeper_{table_slug}"
     tg_kwargs: dict[str, Any] = {"group_id": gid}
     if dag is not None:
         tg_kwargs["dag"] = dag
@@ -89,7 +89,7 @@ def wap_task_group(
         sensors = []
         for src in sorted(resolved_sources):
             sensor_id = f"wait_{_slugify(src)}"
-            sensor = WAPSensor(
+            sensor = TollkeeperSensor(
                 task_id=sensor_id,
                 table=src,
                 signal_store=signal_store,
@@ -97,8 +97,8 @@ def wap_task_group(
             )
             sensors.append(sensor)
 
-        wap_op = WAPOperator(
-            task_id=f"wap_{table_slug}",
+        tk_op = TollkeeperOperator(
+            task_id=f"tollkeeper_{table_slug}",
             operator=sql_operator,
             table=table,
             backend=backend,
@@ -111,6 +111,6 @@ def wap_task_group(
         )
 
         for sensor in sensors:
-            sensor >> wap_op
+            sensor >> tk_op
 
     return tg

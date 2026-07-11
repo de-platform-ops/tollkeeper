@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from write_audit_publish.backends.csv import CsvBackend
+from tollkeeper.backends.csv import CsvBackend
 
 
 class TestCsvBackend:
@@ -12,7 +12,7 @@ class TestCsvBackend:
         ref = backend.create_version("sales")
         path = Path(ref)
         assert path.parent == tmp_path / "staging"
-        assert path.name.startswith("sales.wap-")
+        assert path.name.startswith("sales.tollkeeper-")
         assert path.name.endswith(".csv")
 
     def test_create_version_creates_staging_dir(self, tmp_path: Path) -> None:
@@ -86,7 +86,7 @@ class TestCleanupStaging:
         backend = CsvBackend(staging_dir=tmp_path / "nonexistent", publish_dir=tmp_path / "publish")
         assert backend.cleanup_staging() == []
 
-    def test_ignores_non_wap_files(self, tmp_path: Path) -> None:
+    def test_ignores_non_tollkeeper_files(self, tmp_path: Path) -> None:
         staging = tmp_path / "staging"
         staging.mkdir()
         (staging / "other.csv").write_text("x\n")

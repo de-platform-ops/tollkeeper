@@ -3,8 +3,8 @@
 ## Development setup
 
 ```bash
-git clone https://github.com/srchilukoori/write-audit-publish.git
-cd write-audit-publish
+git clone https://github.com/srchilukoori/tollkeeper.git
+cd tollkeeper
 uv sync
 ```
 
@@ -44,7 +44,7 @@ Use `uv` for everything. Do not use `pip` or `venv` directly.
 
 - **Bulk or spray-and-pray PRs.** Don't trawl the issue tracker and open PRs for multiple issues in one session. Pick one, understand it, submit it.
 - **Speculative fixes.** "This could theoretically break" isn't a problem statement. If you can't point to a failing test or a reproducible bug, don't submit the PR.
-- **Restructuring without evidence.** Changes to core abstractions (the `Backend` ABC, `WAPSession` state machine, `BaseCheck` ABC) need a concrete second use case or a bug report, not a taste preference.
+- **Restructuring without evidence.** Changes to core abstractions (the `Backend` ABC, `TollkeeperSession` state machine, `BaseCheck` ABC) need a concrete second use case or a bug report, not a taste preference.
 - **New dependencies for what a few lines can do.** This library has zero required dependencies by design. Optional backends (`polars`, `iceberg`) are extras — don't add another.
 
 ## Code style

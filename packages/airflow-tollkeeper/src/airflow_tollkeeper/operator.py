@@ -2,26 +2,26 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from airflow_wap.compat import BaseOperator
+from airflow_tollkeeper.compat import BaseOperator
 
-from airflow_wap.engine import LOCAL_ENGINE, resolve_engine
-from airflow_wap.strategy import strategy_registry
+from airflow_tollkeeper.engine import LOCAL_ENGINE, resolve_engine
+from airflow_tollkeeper.strategy import strategy_registry
 
 if TYPE_CHECKING:
-    from write_audit_publish.backends.base import Backend
-    from write_audit_publish.checks.base import BaseCheck
-    from write_audit_publish.signals.base import SignalStore
+    from tollkeeper.backends.base import Backend
+    from tollkeeper.checks.base import BaseCheck
+    from tollkeeper.signals.base import SignalStore
 
 
-class WAPOperator(BaseOperator):
+class TollkeeperOperator(BaseOperator):
     """Wraps any Airflow operator in a Write-Audit-Publish lifecycle.
 
     The wrapped operator's writes are redirected to a staging version via a
-    registered ``WAPStrategy``. DQ checks run on a remote engine (or in-process
+    registered ``TollkeeperStrategy``. DQ checks run on a remote engine (or in-process
     with ``engine="local"``). On success, the version is published and a signal
     is emitted. On failure, the version is rolled back.
 
-    Operators without a registered strategy pass through unchanged (no WAP
+    Operators without a registered strategy pass through unchanged (no Tollkeeper
     lifecycle, checks are skipped).
     """
 
@@ -59,10 +59,10 @@ class WAPOperator(BaseOperator):
 
         engine_conn = resolve_engine(self.engine, self.engine_conn_id)
 
-        from write_audit_publish.core import WAP
+        from tollkeeper.core import Tollkeeper
 
-        wap = WAP(self.backend, signal_store=self.signal_store)
-        with wap.table(self.table) as session:
+        tk = Tollkeeper(self.backend, signal_store=self.signal_store)
+        with tk.table(self.table) as session:
             strategy.redirect(self.operator, session.ref)
             try:
                 self.operator.execute(context)
@@ -78,5 +78,5 @@ class WAPOperator(BaseOperator):
             )
             session.publish()
 
-        context["ti"].xcom_push(key="wap_version_ref", value=session.ref)
+        context["ti"].xcom_push(key="tollkeeper_version_ref", value=session.ref)
         return session.ref

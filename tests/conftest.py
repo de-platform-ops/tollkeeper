@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from write_audit_publish import BaseCheck, CheckResult
-from write_audit_publish.backends.base import Backend
+from tollkeeper import BaseCheck, CheckResult
+from tollkeeper.backends.base import Backend
 
 
 class FakeBackend(Backend):

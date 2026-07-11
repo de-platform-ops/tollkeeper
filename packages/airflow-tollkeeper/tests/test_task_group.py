@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from airflow_wap import WAPOperator, WAPSensor
-from airflow_wap.task_group import wap_task_group
-from write_audit_publish.signals.sqlite import SqliteSignalStore
+from airflow_tollkeeper import TollkeeperOperator, TollkeeperSensor
+from airflow_tollkeeper.task_group import tollkeeper_task_group
+from tollkeeper.signals.sqlite import SqliteSignalStore
 
 from .conftest import (
     FakeBackend,
@@ -32,12 +32,12 @@ def signal_store(tmp_path):
     return SqliteSignalStore(str(tmp_path / "signals.db"))
 
 
-class TestWapTaskGroupHappyPath:
+class TestTollkeeperTaskGroupHappyPath:
     def test_creates_task_group_with_sensors_and_operator(self, dag, backend, signal_store):
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="analytics.sales",
                 backend=backend,
@@ -48,11 +48,11 @@ class TestWapTaskGroupHappyPath:
             )
 
         children = list(tg.children.values())
-        sensor_tasks = [t for t in children if isinstance(t, WAPSensor)]
-        wap_tasks = [t for t in children if isinstance(t, WAPOperator)]
+        sensor_tasks = [t for t in children if isinstance(t, TollkeeperSensor)]
+        tollkeeper_tasks = [t for t in children if isinstance(t, TollkeeperOperator)]
 
         assert len(sensor_tasks) == 2
-        assert len(wap_tasks) == 1
+        assert len(tollkeeper_tasks) == 1
         sensor_tables = {s.table for s in sensor_tasks}
         assert sensor_tables == {"raw.orders", "raw.customers"}
 
@@ -60,7 +60,7 @@ class TestWapTaskGroupHappyPath:
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="sales",
                 backend=backend,
@@ -70,13 +70,13 @@ class TestWapTaskGroupHappyPath:
                 engine="local",
             )
 
-        assert tg.group_id == "wap_sales"
+        assert tg.group_id == "tollkeeper_sales"
 
     def test_custom_group_id(self, dag, backend, signal_store):
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 group_id="my_custom_group",
                 sql_operator=inner,
                 table="sales",
@@ -93,7 +93,7 @@ class TestWapTaskGroupHappyPath:
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="sales",
                 backend=backend,
@@ -104,18 +104,18 @@ class TestWapTaskGroupHappyPath:
             )
 
         children = list(tg.children.values())
-        wap_op = [t for t in children if isinstance(t, WAPOperator)][0]
-        sensor = [t for t in children if isinstance(t, WAPSensor)][0]
+        tk_op = [t for t in children if isinstance(t, TollkeeperOperator)][0]
+        sensor = [t for t in children if isinstance(t, TollkeeperSensor)][0]
 
-        assert sensor in wap_op.upstream_list
+        assert sensor in tk_op.upstream_list
 
 
-class TestWapTaskGroupAutoParseSQL:
+class TestTollkeeperTaskGroupAutoParseSQL:
     def test_parses_sql_for_sources(self, dag, backend, signal_store):
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="analytics.sales",
                 backend=backend,
@@ -126,7 +126,7 @@ class TestWapTaskGroupAutoParseSQL:
             )
 
         children = list(tg.children.values())
-        sensor_tasks = [t for t in children if isinstance(t, WAPSensor)]
+        sensor_tasks = [t for t in children if isinstance(t, TollkeeperSensor)]
         sensor_tables = {s.table for s in sensor_tasks}
         assert sensor_tables == {"raw.orders", "raw.customers"}
 
@@ -135,7 +135,7 @@ class TestWapTaskGroupAutoParseSQL:
         inner.sql = "INSERT INTO analytics.sales SELECT * FROM raw.events"
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="analytics.sales",
                 backend=backend,
@@ -145,7 +145,7 @@ class TestWapTaskGroupAutoParseSQL:
             )
 
         children = list(tg.children.values())
-        sensor_tasks = [t for t in children if isinstance(t, WAPSensor)]
+        sensor_tasks = [t for t in children if isinstance(t, TollkeeperSensor)]
         assert len(sensor_tasks) == 1
         assert sensor_tasks[0].table == "raw.events"
 
@@ -153,7 +153,7 @@ class TestWapTaskGroupAutoParseSQL:
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="analytics.sales",
                 backend=backend,
@@ -165,7 +165,7 @@ class TestWapTaskGroupAutoParseSQL:
             )
 
         children = list(tg.children.values())
-        sensor_tasks = [t for t in children if isinstance(t, WAPSensor)]
+        sensor_tasks = [t for t in children if isinstance(t, TollkeeperSensor)]
         assert len(sensor_tasks) == 1
         assert sensor_tasks[0].table == "override.table_a"
 
@@ -175,7 +175,7 @@ class TestWapTaskGroupAutoParseSQL:
 
         with pytest.raises(ValueError, match="sink.*does not match.*table"):
             with dag:
-                wap_task_group(
+                tollkeeper_task_group(
                     sql_operator=inner,
                     table="analytics.sales",
                     backend=backend,
@@ -185,12 +185,12 @@ class TestWapTaskGroupAutoParseSQL:
                 )
 
 
-class TestWapTaskGroupEdgeCases:
+class TestTollkeeperTaskGroupEdgeCases:
     def test_no_sources_creates_operator_only(self, dag, backend, signal_store):
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="sales",
                 backend=backend,
@@ -200,17 +200,17 @@ class TestWapTaskGroupEdgeCases:
             )
 
         children = list(tg.children.values())
-        sensor_tasks = [t for t in children if isinstance(t, WAPSensor)]
-        wap_tasks = [t for t in children if isinstance(t, WAPOperator)]
+        sensor_tasks = [t for t in children if isinstance(t, TollkeeperSensor)]
+        tollkeeper_tasks = [t for t in children if isinstance(t, TollkeeperOperator)]
         assert len(sensor_tasks) == 0
-        assert len(wap_tasks) == 1
+        assert len(tollkeeper_tasks) == 1
 
     def test_jinja_sql_on_operator_falls_through_to_no_sources(self, dag, backend, signal_store):
         inner = FakeOperator(task_id="insert_sales", dag=dag)
         inner.sql = "INSERT INTO sales SELECT * FROM {{ params.source_table }}"
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="sales",
                 backend=backend,
@@ -220,7 +220,7 @@ class TestWapTaskGroupEdgeCases:
             )
 
         children = list(tg.children.values())
-        sensor_tasks = [t for t in children if isinstance(t, WAPSensor)]
+        sensor_tasks = [t for t in children if isinstance(t, TollkeeperSensor)]
         assert len(sensor_tasks) == 0
 
     def test_circular_dependency_raises(self, dag, backend, signal_store):
@@ -228,7 +228,7 @@ class TestWapTaskGroupEdgeCases:
 
         with pytest.raises(ValueError, match="(?i)circular"):
             with dag:
-                wap_task_group(
+                tollkeeper_task_group(
                     sql_operator=inner,
                     table="sales",
                     backend=backend,
@@ -243,7 +243,7 @@ class TestWapTaskGroupEdgeCases:
 
         with pytest.raises(ValueError, match="sink.*does not match.*table"):
             with dag:
-                wap_task_group(
+                tollkeeper_task_group(
                     sql_operator=inner,
                     table="analytics.sales",
                     backend=backend,
@@ -258,7 +258,7 @@ class TestWapTaskGroupEdgeCases:
         ctx = {"ds": "{{ ds }}"}
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="sales",
                 backend=backend,
@@ -270,14 +270,14 @@ class TestWapTaskGroupEdgeCases:
             )
 
         children = list(tg.children.values())
-        sensor = [t for t in children if isinstance(t, WAPSensor)][0]
+        sensor = [t for t in children if isinstance(t, TollkeeperSensor)][0]
         assert sensor.execution_ctx == {"ds": "{{ ds }}"}
 
     def test_duplicate_sources_are_deduped(self, dag, backend, signal_store):
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="sales",
                 backend=backend,
@@ -288,14 +288,14 @@ class TestWapTaskGroupEdgeCases:
             )
 
         children = list(tg.children.values())
-        sensor_tasks = [t for t in children if isinstance(t, WAPSensor)]
+        sensor_tasks = [t for t in children if isinstance(t, TollkeeperSensor)]
         assert len(sensor_tasks) == 1
 
     def test_dotted_table_names_use_double_underscore_slug(self, dag, backend, signal_store):
         inner = FakeOperator(task_id="insert_sales", dag=dag)
 
         with dag:
-            tg = wap_task_group(
+            tg = tollkeeper_task_group(
                 sql_operator=inner,
                 table="analytics.sales",
                 backend=backend,
@@ -305,12 +305,12 @@ class TestWapTaskGroupEdgeCases:
                 engine="local",
             )
 
-        assert tg.group_id == "wap_analytics__sales"
+        assert tg.group_id == "tollkeeper_analytics__sales"
         children = list(tg.children.values())
-        sensor = [t for t in children if isinstance(t, WAPSensor)][0]
+        sensor = [t for t in children if isinstance(t, TollkeeperSensor)][0]
         assert sensor.task_id.endswith("wait_raw__orders")
 
 
-class TestWAPSensorTemplateFields:
+class TestTollkeeperSensorTemplateFields:
     def test_execution_ctx_is_template_field(self):
-        assert "execution_ctx" in WAPSensor.template_fields
+        assert "execution_ctx" in TollkeeperSensor.template_fields

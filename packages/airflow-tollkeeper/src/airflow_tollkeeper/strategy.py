@@ -4,11 +4,11 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from airflow_wap.compat import BaseOperator
+    from airflow_tollkeeper.compat import BaseOperator
 
 
-class WAPStrategy(ABC):
-    """Defines how to redirect an operator's writes to a WAP staging version."""
+class TollkeeperStrategy(ABC):
+    """Defines how to redirect an operator's writes to a Tollkeeper staging version."""
 
     @abstractmethod
     def redirect(self, operator: BaseOperator, version_ref: str) -> None:
@@ -20,15 +20,15 @@ class WAPStrategy(ABC):
 
 
 class StrategyRegistry:
-    """Maps operator types to WAP strategies. O(1) lookup by operator class."""
+    """Maps operator types to Tollkeeper strategies. O(1) lookup by operator class."""
 
     def __init__(self) -> None:
-        self._strategies: dict[type[BaseOperator], type[WAPStrategy]] = {}
+        self._strategies: dict[type[BaseOperator], type[TollkeeperStrategy]] = {}
 
-    def register(self, operator_cls: type[BaseOperator], strategy_cls: type[WAPStrategy]) -> None:
+    def register(self, operator_cls: type[BaseOperator], strategy_cls: type[TollkeeperStrategy]) -> None:
         self._strategies[operator_cls] = strategy_cls
 
-    def get(self, operator_cls: type[BaseOperator]) -> WAPStrategy | None:
+    def get(self, operator_cls: type[BaseOperator]) -> TollkeeperStrategy | None:
         strategy_cls = self._strategies.get(operator_cls)
         return strategy_cls() if strategy_cls else None
 

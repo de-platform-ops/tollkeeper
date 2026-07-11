@@ -5,8 +5,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: write-audit-publish version
-      description: Output of `pip show write-audit-publish` or the pinned version in your lockfile
+      label: tollkeeper version
+      description: Output of `pip show tollkeeper` or the pinned version in your lockfile
       placeholder: "0.1.0"
     validations:
       required: true

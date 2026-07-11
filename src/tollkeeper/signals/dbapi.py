@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import Any, Callable
 
-from write_audit_publish.signals.base import Signal, SignalStore
+from tollkeeper.signals.base import Signal, SignalStore
 
 
 class DbApiSignalStore(SignalStore):
@@ -36,7 +36,7 @@ class DbApiSignalStore(SignalStore):
         cur = self._conn.cursor()
         cur.execute(
             self._p("""
-            CREATE TABLE IF NOT EXISTS wap_signals (
+            CREATE TABLE IF NOT EXISTS tollkeeper_signals (
                 table_name    VARCHAR(512) NOT NULL,
                 execution_ctx VARCHAR(2048) NOT NULL DEFAULT '{}',
                 status        VARCHAR(20) NOT NULL,
@@ -50,7 +50,7 @@ class DbApiSignalStore(SignalStore):
         )
         cur.execute(
             self._p("""
-            CREATE TABLE IF NOT EXISTS wap_signal_deps (
+            CREATE TABLE IF NOT EXISTS tollkeeper_signal_deps (
                 upstream_table   VARCHAR(512) NOT NULL,
                 upstream_ctx     VARCHAR(2048) NOT NULL DEFAULT '{}',
                 downstream_table VARCHAR(512) NOT NULL,
@@ -71,10 +71,11 @@ class DbApiSignalStore(SignalStore):
         now = datetime.now().isoformat()
         cur = self._conn.cursor()
         cur.execute(
-            self._p("DELETE FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"), (signal.table_name, ctx_key)
+            self._p("DELETE FROM tollkeeper_signals WHERE table_name = ? AND execution_ctx = ?"),
+            (signal.table_name, ctx_key),
         )
         cur.execute(
-            self._p("""INSERT INTO wap_signals
+            self._p("""INSERT INTO tollkeeper_signals
                        (table_name, execution_ctx, status, execution_ts, updated_at, check_summary, metadata)
                        VALUES (?, ?, ?, ?, ?, ?, ?)"""),
             (
@@ -92,7 +93,9 @@ class DbApiSignalStore(SignalStore):
     def delete(self, table: str, execution_ctx: dict | None = None) -> None:
         ctx_key = self._ctx_key(execution_ctx)
         cur = self._conn.cursor()
-        cur.execute(self._p("DELETE FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"), (table, ctx_key))
+        cur.execute(
+            self._p("DELETE FROM tollkeeper_signals WHERE table_name = ? AND execution_ctx = ?"), (table, ctx_key)
+        )
         self._conn.commit()
 
         for ds_table, ds_ctx, policy in self.get_downstream(table, execution_ctx):
@@ -104,7 +107,9 @@ class DbApiSignalStore(SignalStore):
     def check(self, table: str, execution_ctx: dict | None = None) -> Signal | None:
         ctx_key = self._ctx_key(execution_ctx)
         cur = self._conn.cursor()
-        cur.execute(self._p("SELECT * FROM wap_signals WHERE table_name = ? AND execution_ctx = ?"), (table, ctx_key))
+        cur.execute(
+            self._p("SELECT * FROM tollkeeper_signals WHERE table_name = ? AND execution_ctx = ?"), (table, ctx_key)
+        )
         row = cur.fetchone()
         if row is None:
             return None
@@ -130,12 +135,12 @@ class DbApiSignalStore(SignalStore):
         cur = self._conn.cursor()
         cur.execute(
             self._p(
-                "DELETE FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ? AND downstream_table = ? AND downstream_ctx = ?"
+                "DELETE FROM tollkeeper_signal_deps WHERE upstream_table = ? AND upstream_ctx = ? AND downstream_table = ? AND downstream_ctx = ?"
             ),
             (upstream_table, self._ctx_key(upstream_ctx), downstream_table, self._ctx_key(downstream_ctx)),
         )
         cur.execute(
-            self._p("""INSERT INTO wap_signal_deps
+            self._p("""INSERT INTO tollkeeper_signal_deps
                        (upstream_table, upstream_ctx, downstream_table, downstream_ctx, cascade_policy)
                        VALUES (?, ?, ?, ?, ?)"""),
             (
@@ -152,7 +157,7 @@ class DbApiSignalStore(SignalStore):
         cur = self._conn.cursor()
         cur.execute(
             self._p(
-                "SELECT downstream_table, downstream_ctx, cascade_policy FROM wap_signal_deps WHERE upstream_table = ? AND upstream_ctx = ?"
+                "SELECT downstream_table, downstream_ctx, cascade_policy FROM tollkeeper_signal_deps WHERE upstream_table = ? AND upstream_ctx = ?"
             ),
             (table, self._ctx_key(execution_ctx)),
         )

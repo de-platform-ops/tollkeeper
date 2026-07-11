@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
-    from write_audit_publish.backends.base import Backend
-    from write_audit_publish.checks.base import BaseCheck, CheckResult
-    from write_audit_publish.signals.base import SignalStore
+    from tollkeeper.backends.base import Backend
+    from tollkeeper.checks.base import BaseCheck, CheckResult
+    from tollkeeper.signals.base import SignalStore
 
 
 @dataclass
@@ -39,12 +39,12 @@ class AuditFailedError(Exception):
         super().__init__(f"Audit failed for {table}@{version_ref}: {names}")
 
 
-class WAPSession:
+class TollkeeperSession:
     """A single write-audit-publish session for one table version.
 
-    Created by ``WAP.table()``. Supports fluent chaining::
+    Created by ``Tollkeeper.table()``. Supports fluent chaining::
 
-        WAP(backend).table("sales").write(fn).audit([checks]).publish()
+        Tollkeeper(backend).table("sales").write(fn).audit([checks]).publish()
     """
 
     def __init__(self, backend: Backend, table: str, version_ref: str, signal_store: SignalStore | None = None) -> None:
@@ -62,7 +62,7 @@ class WAPSession:
             import logging
 
             logging.getLogger(__name__).warning(
-                "WAPSession for %s was never published or rolled back — rolling back", self._table
+                "TollkeeperSession for %s was never published or rolled back — rolling back", self._table
             )
             try:
                 self._backend.rollback_version(self._table, self._version_ref)
@@ -70,7 +70,7 @@ class WAPSession:
                 pass
             self._rolled_back = True
 
-    def __enter__(self) -> WAPSession:
+    def __enter__(self) -> TollkeeperSession:
         return self
 
     def __exit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: object) -> None:
@@ -89,7 +89,7 @@ class WAPSession:
     def report(self) -> CheckReport:
         return self._report
 
-    def write(self, fn: Callable[[str], None]) -> WAPSession:
+    def write(self, fn: Callable[[str], None]) -> TollkeeperSession:
         """Execute the write function against the staged version.
 
         Args:
@@ -114,7 +114,7 @@ class WAPSession:
         on_notify: Callable[[str, str, list[CheckResult]], None] | None = None,
         execution_ctx: dict | None = None,
         conn: Any | None = None,
-    ) -> WAPSession:
+    ) -> TollkeeperSession:
         if on_failure not in ("stop", "continue"):
             raise ValueError("on_failure must be 'stop' or 'continue'")
 
@@ -137,7 +137,7 @@ class WAPSession:
         if self._signal_store and self._report.passed:
             from datetime import datetime
 
-            from write_audit_publish.signals.base import Signal
+            from tollkeeper.signals.base import Signal
 
             self._signal_store.write(
                 Signal(
@@ -151,7 +151,7 @@ class WAPSession:
 
         return self
 
-    def publish(self) -> WAPSession:
+    def publish(self) -> TollkeeperSession:
         """Promote the staged version to production.
 
         Raises:
@@ -167,7 +167,7 @@ class WAPSession:
             self._published = True
         return self
 
-    def rollback(self) -> WAPSession:
+    def rollback(self) -> TollkeeperSession:
         """Discard the staged version without publishing.
 
         Raises:
@@ -181,7 +181,7 @@ class WAPSession:
         return self
 
 
-class WAP:
+class Tollkeeper:
     """Entry point for the write-audit-publish pattern.
 
     Args:
@@ -189,13 +189,13 @@ class WAP:
 
     Example::
 
-        WAP(CsvBackend(staging, publish)).table("sales").write(fn).audit([NullCheck("id")]).publish()
+        Tollkeeper(CsvBackend(staging, publish)).table("sales").write(fn).audit([NullCheck("id")]).publish()
     """
 
     def __init__(self, backend: Backend, signal_store: SignalStore | None = None) -> None:
         self._backend = backend
         self._signal_store = signal_store
 
-    def table(self, table: str) -> WAPSession:
+    def table(self, table: str) -> TollkeeperSession:
         version_ref = self._backend.create_version(table)
-        return WAPSession(self._backend, table, version_ref, self._signal_store)
+        return TollkeeperSession(self._backend, table, version_ref, self._signal_store)

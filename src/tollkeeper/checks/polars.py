@@ -4,7 +4,7 @@ from typing import Any
 
 import polars as pl
 
-from write_audit_publish.checks.base import BaseCheck, CheckResult
+from tollkeeper.checks.base import BaseCheck, CheckResult
 
 
 class NullCheck(BaseCheck):

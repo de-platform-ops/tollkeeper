@@ -4,7 +4,7 @@ from pathlib import Path
 
 import polars as pl
 
-from write_audit_publish.checks.polars import ExpressionCheck, NullCheck, RowCountCheck, SqlCheck, UniqueCheck
+from tollkeeper.checks.polars import ExpressionCheck, NullCheck, RowCountCheck, SqlCheck, UniqueCheck
 
 
 class TestNullCheck:

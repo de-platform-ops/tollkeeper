@@ -4,8 +4,8 @@ import sqlite3
 
 import pytest
 
-from write_audit_publish import WAP, AuditFailedError
-from write_audit_publish.signals import DbApiSignalStore, Signal, SqliteSignalStore
+from tollkeeper import Tollkeeper, AuditFailedError
+from tollkeeper.signals import DbApiSignalStore, Signal, SqliteSignalStore
 
 from .conftest import FailingCheck, FakeBackend, PassingCheck
 
@@ -125,12 +125,12 @@ class TestCascadeDelete:
         assert store.check("solo") is None
 
 
-class TestWAPSignalIntegration:
+class TestTollkeeperSignalIntegration:
     @pytest.mark.parametrize("make_store", [_make_sqlite_store, _make_dbapi_store])
     def test_audit_pass_writes_signal(self, tmp_path, make_store) -> None:
         backend = FakeBackend()
         signal_store = make_store(tmp_path, suffix="_pass")
-        WAP(backend, signal_store=signal_store).table("my_table").audit([PassingCheck()]).publish()
+        Tollkeeper(backend, signal_store=signal_store).table("my_table").audit([PassingCheck()]).publish()
         assert signal_store.check("my_table") is not None
 
     @pytest.mark.parametrize("make_store", [_make_sqlite_store, _make_dbapi_store])
@@ -138,7 +138,7 @@ class TestWAPSignalIntegration:
         backend = FakeBackend()
         signal_store = make_store(tmp_path, suffix="_fail")
         with pytest.raises(AuditFailedError):
-            WAP(backend, signal_store=signal_store).table("my_table").audit([FailingCheck()], on_failure="stop")
+            Tollkeeper(backend, signal_store=signal_store).table("my_table").audit([FailingCheck()], on_failure="stop")
         assert signal_store.check("my_table") is None
 
     @pytest.mark.parametrize("make_store", [_make_sqlite_store, _make_dbapi_store])
@@ -147,11 +147,11 @@ class TestWAPSignalIntegration:
         signal_store = make_store(tmp_path, suffix="_stale")
         signal_store.write(Signal(table_name="my_table", status="stale"))
         with pytest.raises(AuditFailedError):
-            WAP(backend, signal_store=signal_store).table("my_table").audit([FailingCheck()], on_failure="stop")
+            Tollkeeper(backend, signal_store=signal_store).table("my_table").audit([FailingCheck()], on_failure="stop")
         assert signal_store.check("my_table") is None
 
     def test_no_signal_store_backward_compat(self) -> None:
         backend = FakeBackend()
-        session = WAP(backend).table("my_table").audit([PassingCheck()]).publish()
+        session = Tollkeeper(backend).table("my_table").audit([PassingCheck()]).publish()
         assert session.report.passed
         assert backend.published == [("my_table", "branch-my_table-001")]

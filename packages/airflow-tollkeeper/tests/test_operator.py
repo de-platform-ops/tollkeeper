@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from airflow_wap import WAPOperator
-from airflow_wap.engine import LOCAL_ENGINE, resolve_engine
-from write_audit_publish.core import AuditFailedError
+from airflow_tollkeeper import TollkeeperOperator
+from airflow_tollkeeper.engine import LOCAL_ENGINE, resolve_engine
+from tollkeeper.core import AuditFailedError
 
 from .conftest import (
     FakeBackend,
@@ -44,14 +44,14 @@ class TestResolveEngine:
             resolve_engine(engine=None, engine_conn_id=None)
 
 
-class TestWAPOperatorPassthrough:
+class TestTollkeeperOperatorPassthrough:
     def test_unknown_operator_passes_through(self, dag, fake_context):
         unregister_fake_strategy()
         inner = FakeOperator(task_id="inner", dag=dag)
         backend = FakeBackend()
 
-        wap = WAPOperator(
-            task_id="wap_task",
+        tk = TollkeeperOperator(
+            task_id="tollkeeper_task",
             operator=inner,
             table="test_table",
             backend=backend,
@@ -59,20 +59,20 @@ class TestWAPOperatorPassthrough:
             engine="local",
             dag=dag,
         )
-        result = wap.execute(fake_context)
+        result = tk.execute(fake_context)
 
         assert inner.executed
         assert result is None
         assert len(backend.created) == 0
 
 
-class TestWAPOperatorLifecycle:
+class TestTollkeeperOperatorLifecycle:
     def test_happy_path_publishes(self, dag, fake_context):
         inner = FakeOperator(task_id="inner", dag=dag)
         backend = FakeBackend()
 
-        wap = WAPOperator(
-            task_id="wap_task",
+        tk = TollkeeperOperator(
+            task_id="tollkeeper_task",
             operator=inner,
             table="test_table",
             backend=backend,
@@ -80,20 +80,20 @@ class TestWAPOperatorLifecycle:
             engine="local",
             dag=dag,
         )
-        result = wap.execute(fake_context)
+        result = tk.execute(fake_context)
 
         assert inner.executed
         assert len(backend.published) == 1
         assert backend.published[0][0] == "test_table"
         assert result == "v_0"
-        fake_context["ti"].xcom_push.assert_called_once_with(key="wap_version_ref", value="v_0")
+        fake_context["ti"].xcom_push.assert_called_once_with(key="tollkeeper_version_ref", value="v_0")
 
     def test_failed_check_rolls_back(self, dag, fake_context):
         inner = FakeOperator(task_id="inner", dag=dag)
         backend = FakeBackend()
 
-        wap = WAPOperator(
-            task_id="wap_task",
+        tk = TollkeeperOperator(
+            task_id="tollkeeper_task",
             operator=inner,
             table="test_table",
             backend=backend,
@@ -103,7 +103,7 @@ class TestWAPOperatorLifecycle:
         )
 
         with pytest.raises(AuditFailedError):
-            wap.execute(fake_context)
+            tk.execute(fake_context)
 
         assert len(backend.published) == 0
         assert len(backend.rolled_back) >= 1
@@ -112,8 +112,8 @@ class TestWAPOperatorLifecycle:
         inner = FakeOperator(task_id="inner", fail=True, dag=dag)
         backend = FakeBackend()
 
-        wap = WAPOperator(
-            task_id="wap_task",
+        tk = TollkeeperOperator(
+            task_id="tollkeeper_task",
             operator=inner,
             table="test_table",
             backend=backend,
@@ -123,7 +123,7 @@ class TestWAPOperatorLifecycle:
         )
 
         with pytest.raises(RuntimeError, match="FakeOperator failure"):
-            wap.execute(fake_context)
+            tk.execute(fake_context)
 
         assert len(backend.published) == 0
         assert len(backend.rolled_back) >= 1
@@ -132,8 +132,8 @@ class TestWAPOperatorLifecycle:
         inner = FakeOperator(task_id="inner", dag=dag)
         backend = FakeBackend()
 
-        wap = WAPOperator(
-            task_id="wap_task",
+        tk = TollkeeperOperator(
+            task_id="tollkeeper_task",
             operator=inner,
             table="test_table",
             backend=backend,
@@ -141,7 +141,7 @@ class TestWAPOperatorLifecycle:
             engine="local",
             dag=dag,
         )
-        wap.execute(fake_context)
+        tk.execute(fake_context)
 
         assert inner.last_target is None  # restore() clears it
 
@@ -149,8 +149,8 @@ class TestWAPOperatorLifecycle:
         inner = FakeOperator(task_id="inner", dag=dag)
         backend = FakeBackend()
 
-        wap = WAPOperator(
-            task_id="wap_task",
+        tk = TollkeeperOperator(
+            task_id="tollkeeper_task",
             operator=inner,
             table="test_table",
             backend=backend,
@@ -159,12 +159,12 @@ class TestWAPOperatorLifecycle:
         )
 
         with pytest.raises(ValueError, match="engine or engine_conn_id is required"):
-            wap.execute(fake_context)
+            tk.execute(fake_context)
 
 
 class TestStrategyRegistry:
     def test_registered_operator_returns_strategy(self):
-        from airflow_wap.strategy import strategy_registry
+        from airflow_tollkeeper.strategy import strategy_registry
 
         from .conftest import FakeOperator, FakeStrategy
 
@@ -172,7 +172,7 @@ class TestStrategyRegistry:
         assert isinstance(strategy, FakeStrategy)
 
     def test_unregistered_operator_returns_none(self):
-        from airflow_wap.strategy import strategy_registry
+        from airflow_tollkeeper.strategy import strategy_registry
 
         strategy = strategy_registry.get(type("UnknownOp", (), {}))
         assert strategy is None

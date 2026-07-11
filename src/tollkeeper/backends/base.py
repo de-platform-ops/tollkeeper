@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 
 class Backend(ABC):
-    """Abstract base for WAP storage backends.
+    """Abstract base for Tollkeeper storage backends.
 
     A backend manages the lifecycle of a versioned table: creating an isolated
     staging area, promoting it to production, or rolling it back. Implement this

@@ -47,12 +47,12 @@ wheels = [
 ]
 
 [[package]]
-name = "airflow-wap"
+name = "airflow-tollkeeper"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "apache-airflow" },
-    { name = "write-audit-publish" },
+    { name = "tollkeeper" },
 ]
 
 [package.optional-dependencies]
@@ -72,7 +72,7 @@ dev = [
 requires-dist = [
     { name = "apache-airflow", specifier = ">=2.9" },
     { name = "apache-airflow-providers-apache-spark", marker = "extra == 'spark'", specifier = ">=4.0" },
-    { name = "write-audit-publish", directory = "../../" },
+    { name = "tollkeeper", directory = "../../" },
 ]
 provides-extras = ["spark"]
 
@@ -237,15 +237,15 @@ wheels = [
 
 [[package]]
 name = "apache-airflow-providers-common-compat"
-version = "1.15.0"
+version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "apache-airflow" },
     { name = "asgiref" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/f4/21478e8686a430a1718a419f21ccebfa095133ba575b6f29e61df427ecdc/apache_airflow_providers_common_compat-1.15.0.tar.gz", hash = "sha256:1d3e05cddc66615307683309e2443c8c92de74817c1e08d6b26d278b8c20eb00", size = 40119, upload-time = "2026-05-23T12:32:24.629Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/af/d47bcc7b4a82fc52a6e3082fcb4954ee280d3b09ce1c70d773b79e9159e7/apache_airflow_providers_common_compat-1.16.0.tar.gz", hash = "sha256:7f319f8ccd168508c23b591051bd3f662c33b43aa4a0b39157c590c532b54572", size = 42238, upload-time = "2026-07-10T16:28:28.025Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/c2/57896190db40cbcdf7e41f5c07b21a2e33fb97c6db81f05c6cd7069ef832/apache_airflow_providers_common_compat-1.15.0-py3-none-any.whl", hash = "sha256:86cbc6363baef2cd02962af0877cec71cc99ff7c298cb2d19cac0b788c40e1d2", size = 42403, upload-time = "2026-05-23T12:31:20.675Z" },
+    { url = "https://files.pythonhosted.org/packages/05/bb/c065e5e992539776129badc00e49042bc44eb7622b8a381ef40ff9df2a44/apache_airflow_providers_common_compat-1.16.0-py3-none-any.whl", hash = "sha256:8fc317c5388d1e263e9728afa40201011c95b5454bf062d17baf300426d73416", size = 43854, upload-time = "2026-07-10T16:27:55.513Z" },
 ]
 
 [[package]]
@@ -263,7 +263,7 @@ wheels = [
 
 [[package]]
 name = "apache-airflow-providers-common-sql"
-version = "2.0.1"
+version = "2.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "apache-airflow" },
@@ -272,36 +272,36 @@ dependencies = [
     { name = "more-itertools" },
     { name = "sqlparse" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/27/2a1721a962cdbea85aa412023be05dca3a2fab0153433182ee2670605b5e/apache_airflow_providers_common_sql-2.0.1.tar.gz", hash = "sha256:960d9524d4286c9b96dc65318c2846e560b46d5cfcf4efa84254e70e99edf2b9", size = 141963, upload-time = "2026-06-07T09:43:48.463Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3c/5c/4d9b74ce17e2bc65c5c7ee334081260b93b6c0e1fc97acb06ce6691eb0af/apache_airflow_providers_common_sql-2.0.2.tar.gz", hash = "sha256:365af5fe6fbed3f1125f81222df29b4fb0e4acad2624b2f3ad4fa6a717508eab", size = 142181, upload-time = "2026-07-10T16:28:28.778Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/67/22d2bd5bf3cc01b20f56ff00da7244d0f523142fd602735b9e06b6484be7/apache_airflow_providers_common_sql-2.0.1-py3-none-any.whl", hash = "sha256:1f91d072c1f36fe39d07d85a0a098d16af3851b82e31bad1c69d7d6a2c5a9174", size = 96282, upload-time = "2026-06-07T09:42:31.956Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/e2/ba4b4f38ecf8cf40bcad3aa7ca2388b29acf9e266d53405b1be3f154b3a7/apache_airflow_providers_common_sql-2.0.2-py3-none-any.whl", hash = "sha256:a7f919441b0ab2d013f8c9851b4bc7fe4fb85249faf0a2d67f6b5867d2b8acab", size = 96267, upload-time = "2026-07-10T16:27:56.629Z" },
 ]
 
 [[package]]
 name = "apache-airflow-providers-smtp"
-version = "3.0.1"
+version = "3.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosmtplib" },
     { name = "apache-airflow" },
     { name = "apache-airflow-providers-common-compat" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9a/8c/f8afdcd60b8c6ac3b08dd077bbe4d42234ae4a8cb2cbde9bcc7856860d33/apache_airflow_providers_smtp-3.0.1.tar.gz", hash = "sha256:f34feaf9a988e21e0eec65ee594af02cbb0130386692b01cc0d3330d5c193002", size = 48234, upload-time = "2026-05-23T12:32:52.872Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/a4/e150e61141cf18d99178af544cb89353d4f628690f2d58f891c3923cc226/apache_airflow_providers_smtp-3.0.2.tar.gz", hash = "sha256:69138116969c03609bcfad9d2cc3b95c5426f9ca10be3673d2bfcefe7b3ac53c", size = 47965, upload-time = "2026-07-10T16:28:49.615Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/88/30dc19561d45235e58f3401a2e65c7bc32e45edb13ff44561224be92081b/apache_airflow_providers_smtp-3.0.1-py3-none-any.whl", hash = "sha256:f4519b99fbd636059dd69283704fe9cd38f8510d26d897ea4e340c33c3d12563", size = 26008, upload-time = "2026-05-23T12:31:57.178Z" },
+    { url = "https://files.pythonhosted.org/packages/44/a8/146bcdaf0d2e51957239ac394005153eb2318d81276c9c0f3ad201b65692/apache_airflow_providers_smtp-3.0.2-py3-none-any.whl", hash = "sha256:f1f0d612f56849dc82a8fc4bc4d30a6ec2aa0627f78356a2b1a71e89114e6a48", size = 25801, upload-time = "2026-07-10T16:28:17.345Z" },
 ]
 
 [[package]]
 name = "apache-airflow-providers-standard"
-version = "1.15.0"
+version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "apache-airflow" },
     { name = "apache-airflow-providers-common-compat" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/87/56284b90ed39ed758f73fcb782e1ee9dfc4527d69eceba2d20193ff315b0/apache_airflow_providers_standard-1.15.0.tar.gz", hash = "sha256:65acbfaf46034fd6087d876c2ac06091a101e8fe6e71b1a88cd66567df0bb1a0", size = 216509, upload-time = "2026-06-22T20:00:03.132Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/ac/3c7c8e963ab3bc7a806302f43370b4de1372672b6370232f58505eef881c/apache_airflow_providers_standard-1.16.0.tar.gz", hash = "sha256:a48435726fdcb2328ffaaf7e582d195867b4bdcace8b221a46dd54067f89f577", size = 218230, upload-time = "2026-07-10T16:28:51.126Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/60/9ce19e045da2b5e03bb101149c2696a33b5c767b2a38266c8fe58eac7c9c/apache_airflow_providers_standard-1.15.0-py3-none-any.whl", hash = "sha256:7e6733450eee76907496c85f9684908462e5b85daa857d9641805a14c148cc68", size = 161289, upload-time = "2026-06-22T19:59:26.176Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/b5/b946dfa600bc7668c44700eaf112901c093d68a54280fbb3d73e01a516f2/apache_airflow_providers_standard-1.16.0-py3-none-any.whl", hash = "sha256:840c4c7e61b94ad018f2527177454648548ebaac4da86858aa331629a1a7b408", size = 161286, upload-time = "2026-07-10T16:28:19.384Z" },
 ]
 
 [[package]]
@@ -2870,6 +2870,36 @@ wheels = [
 ]
 
 [[package]]
+name = "tollkeeper"
+version = "0.1.0"
+source = { directory = "../../" }
+
+[package.metadata]
+requires-dist = [
+    { name = "polars", marker = "extra == 'polars'", specifier = ">=1.0.0" },
+    { name = "pyiceberg", marker = "extra == 'iceberg'", specifier = ">=0.9.0" },
+    { name = "sqlglot", marker = "extra == 'sql'", specifier = ">=26.0" },
+    { name = "tollkeeper", extras = ["polars", "iceberg", "sql"], marker = "extra == 'all'" },
+]
+provides-extras = ["polars", "iceberg", "sql", "all"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyarrow", specifier = ">=24.0.0" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-cov", specifier = ">=6.0" },
+    { name = "ruff", specifier = ">=0.11" },
+    { name = "sqlalchemy", specifier = ">=2.0.51" },
+    { name = "tollkeeper", extras = ["all"] },
+    { name = "ty", specifier = ">=0.0.1" },
+]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6" },
+    { name = "mkdocs-material", specifier = ">=9.5" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
+]
+
+[[package]]
 name = "tomli"
 version = "2.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3357,36 +3387,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/4f/ac12fda57a55068a094ec42851fb0a40e8489d8941863d517452de62e507/wrapt-2.2.2-cp314-cp314t-win_amd64.whl", hash = "sha256:d09db0f7e8357060d3c38fc22a018aba683a796bf184360fd1a58f6fc180dc77", size = 82462, upload-time = "2026-06-20T23:49:21.631Z" },
     { url = "https://files.pythonhosted.org/packages/48/a7/df732dac86d9b2027c56bd163dbc883e037b16c3469614752e148d219c61/wrapt-2.2.2-cp314-cp314t-win_arm64.whl", hash = "sha256:f32fe639c39561ccc187bcae17e9271be0eb45f1c2952510d2f29b33ab577347", size = 81182, upload-time = "2026-06-20T23:49:23.199Z" },
     { url = "https://files.pythonhosted.org/packages/6e/d2/6317eb6d4554855bbf12d61857774af34747bf88a42c19bf306de67e2fa3/wrapt-2.2.2-py3-none-any.whl", hash = "sha256:5bad217350f19ce99ca5b5e71d406765ea86fe541628426772b657375ee1c048", size = 61460, upload-time = "2026-06-20T23:49:42.966Z" },
-]
-
-[[package]]
-name = "write-audit-publish"
-version = "0.1.0"
-source = { directory = "../../" }
-
-[package.metadata]
-requires-dist = [
-    { name = "polars", marker = "extra == 'polars'", specifier = ">=1.0.0" },
-    { name = "pyiceberg", marker = "extra == 'iceberg'", specifier = ">=0.9.0" },
-    { name = "sqlglot", marker = "extra == 'sql'", specifier = ">=26.0" },
-    { name = "write-audit-publish", extras = ["polars", "iceberg", "sql"], marker = "extra == 'all'" },
-]
-provides-extras = ["polars", "iceberg", "sql", "all"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyarrow", specifier = ">=24.0.0" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-cov", specifier = ">=6.0" },
-    { name = "ruff", specifier = ">=0.11" },
-    { name = "sqlalchemy", specifier = ">=2.0.51" },
-    { name = "ty", specifier = ">=0.0.1" },
-    { name = "write-audit-publish", extras = ["all"] },
-]
-docs = [
-    { name = "mkdocs", specifier = ">=1.6" },
-    { name = "mkdocs-material", specifier = ">=9.5" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
 ]
 
 [[package]]

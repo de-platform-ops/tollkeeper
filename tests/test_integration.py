@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from write_audit_publish import WAP, AuditFailedError
-from write_audit_publish.backends.csv import CsvBackend
-from write_audit_publish.checks.polars import NullCheck, RowCountCheck
+from tollkeeper import Tollkeeper, AuditFailedError
+from tollkeeper.backends.csv import CsvBackend
+from tollkeeper.checks.polars import NullCheck, RowCountCheck
 
 
 class TestCsvPolarsIntegration:
@@ -19,7 +19,7 @@ class TestCsvPolarsIntegration:
 
         backend = CsvBackend(staging_dir=staging, publish_dir=publish)
         session = (
-            WAP(backend)
+            Tollkeeper(backend)
             .table("customers")
             .write(lambda ref: shutil.copy(upstream, ref))
             .audit([NullCheck("id"), RowCountCheck(min_rows=1)])
@@ -40,7 +40,7 @@ class TestCsvPolarsIntegration:
 
         backend = CsvBackend(staging_dir=staging, publish_dir=publish)
         with pytest.raises(AuditFailedError, match="NullCheck"):
-            WAP(backend).table("customers").write(lambda ref: shutil.copy(upstream, ref)).audit(
+            Tollkeeper(backend).table("customers").write(lambda ref: shutil.copy(upstream, ref)).audit(
                 [NullCheck("id")], on_failure="stop"
             )
 
@@ -54,7 +54,7 @@ class TestCsvPolarsIntegration:
 
         backend = CsvBackend(staging_dir=staging, publish_dir=publish)
         session = (
-            WAP(backend)
+            Tollkeeper(backend)
             .table("small")
             .write(lambda ref: shutil.copy(upstream, ref))
             .audit([RowCountCheck(min_rows=100)], on_failure="continue")
