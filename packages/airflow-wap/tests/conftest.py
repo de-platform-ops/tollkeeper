@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
-from airflow_wap.compat import BaseOperator
+import pytest
+from airflow_wap.compat import BaseOperator, DAG
 
 from airflow_wap.strategy import WAPStrategy, strategy_registry
 from write_audit_publish.backends.base import Backend
@@ -70,3 +72,8 @@ def register_fake_strategy() -> None:
 
 def unregister_fake_strategy() -> None:
     strategy_registry._strategies.pop(FakeOperator, None)
+
+
+@pytest.fixture()
+def dag():
+    return DAG(dag_id="test_dag", start_date=datetime(2026, 1, 1))

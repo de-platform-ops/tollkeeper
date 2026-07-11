@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 import pytest
-from airflow_wap.compat import DAG
 
 from airflow_wap import WAPOperator
 from airflow_wap.engine import LOCAL_ENGINE, resolve_engine
@@ -24,11 +21,6 @@ def _strategy():
     register_fake_strategy()
     yield
     unregister_fake_strategy()
-
-
-@pytest.fixture()
-def dag():
-    return DAG(dag_id="test_dag", start_date=datetime(2026, 1, 1))
 
 
 @pytest.fixture()
