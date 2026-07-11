@@ -15,6 +15,8 @@ class WAPSensor(BaseSensorOperator):
     decoupling downstream from the upstream task's Airflow state.
     """
 
+    template_fields = ("execution_ctx",)
+
     def __init__(
         self,
         *,

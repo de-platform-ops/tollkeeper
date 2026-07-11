@@ -12,4 +12,9 @@ try:
 except ImportError:
     from airflow.sensors.base import BaseSensorOperator  # type: ignore[assignment,no-redef]
 
-__all__ = ["BaseOperator", "BaseSensorOperator", "DAG"]
+try:
+    from airflow.sdk import TaskGroup
+except ImportError:
+    from airflow.utils.task_group import TaskGroup  # type: ignore[assignment,no-redef]
+
+__all__ = ["BaseOperator", "BaseSensorOperator", "DAG", "TaskGroup"]
