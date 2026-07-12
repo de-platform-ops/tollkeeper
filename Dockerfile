@@ -7,7 +7,10 @@ USER airflow
 COPY --chown=airflow:root . /opt/tollkeeper
 WORKDIR /opt/tollkeeper
 
-RUN pip install --no-cache-dir -e ".[sql]" -e "./packages/airflow-tollkeeper" pytest pytest-cov
+RUN pip install --no-cache-dir \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt" \
+    -e ".[sql]" -e "./packages/airflow-tollkeeper" pytest pytest-cov \
+    apache-airflow-providers-apache-spark
 
 ENV AIRFLOW__CORE__EXECUTOR=SequentialExecutor
 ENV AIRFLOW__CORE__LOAD_EXAMPLES=False
