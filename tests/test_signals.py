@@ -6,6 +6,7 @@ import pytest
 
 from tollkeeper import Tollkeeper, AuditFailedError
 from tollkeeper.signals import DbApiSignalStore, Signal, SqliteSignalStore
+from tollkeeper.signals.base import DqResult
 
 from .conftest import FailingCheck, FakeBackend, PassingCheck
 
@@ -155,3 +156,52 @@ class TestTollkeeperSignalIntegration:
         session = Tollkeeper(backend).table("my_table").audit([PassingCheck()]).publish()
         assert session.report.passed
         assert backend.published == [("my_table", "branch-my_table-001")]
+
+
+class TestDqResults:
+    def test_write_and_get(self, store) -> None:
+        result = DqResult(table_name="orders", check_name="no_nulls", passed=True, details="0 violations")
+        store.write_dq_result(result)
+        results = store.get_dq_results("orders")
+        assert len(results) == 1
+        assert results[0].check_name == "no_nulls"
+        assert results[0].passed is True
+
+    def test_upsert_overwrites(self, store) -> None:
+        store.write_dq_result(DqResult(table_name="orders", check_name="no_nulls", passed=True))
+        store.write_dq_result(
+            DqResult(table_name="orders", check_name="no_nulls", passed=False, details="3 violations")
+        )
+        results = store.get_dq_results("orders")
+        assert len(results) == 1
+        assert results[0].passed is False
+
+    def test_multiple_checks(self, store) -> None:
+        store.write_dq_result(DqResult(table_name="orders", check_name="no_nulls", passed=True))
+        store.write_dq_result(DqResult(table_name="orders", check_name="row_count", passed=False))
+        results = store.get_dq_results("orders")
+        assert len(results) == 2
+
+    def test_delete_dq_results(self, store) -> None:
+        store.write_dq_result(DqResult(table_name="orders", check_name="no_nulls", passed=True))
+        store.write_dq_result(DqResult(table_name="orders", check_name="row_count", passed=True))
+        store.delete_dq_results("orders")
+        assert store.get_dq_results("orders") == []
+
+    def test_isolation_by_table(self, store) -> None:
+        store.write_dq_result(DqResult(table_name="orders", check_name="no_nulls", passed=True))
+        store.write_dq_result(DqResult(table_name="users", check_name="no_nulls", passed=False))
+        assert len(store.get_dq_results("orders")) == 1
+        assert store.get_dq_results("orders")[0].passed is True
+
+    def test_isolation_by_execution_ctx(self, store) -> None:
+        store.write_dq_result(
+            DqResult(table_name="orders", check_name="no_nulls", passed=True, execution_ctx={"ds": "2025-01-01"})
+        )
+        store.write_dq_result(
+            DqResult(table_name="orders", check_name="no_nulls", passed=False, execution_ctx={"ds": "2025-01-02"})
+        )
+        r1 = store.get_dq_results("orders", {"ds": "2025-01-01"})
+        r2 = store.get_dq_results("orders", {"ds": "2025-01-02"})
+        assert len(r1) == 1 and r1[0].passed is True
+        assert len(r2) == 1 and r2[0].passed is False

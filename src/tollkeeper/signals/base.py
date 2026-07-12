@@ -8,6 +8,18 @@ from typing import Callable
 
 
 @dataclass
+class DqResult:
+    """Result of a single DQ check execution stored in the signal store."""
+
+    table_name: str
+    check_name: str
+    passed: bool
+    details: str = ""
+    execution_ctx: dict = field(default_factory=dict)
+    executed_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
 class Signal:
     """A record indicating a table's data has been audited."""
 
@@ -53,6 +65,18 @@ class SignalStore(ABC):
                 return signal
             time.sleep(poll_s)
         raise TimeoutError(f"No signal for {table} within {timeout_s}s")
+
+    @abstractmethod
+    def write_dq_result(self, result: DqResult) -> None:
+        """UPSERT a DQ check result."""
+
+    @abstractmethod
+    def get_dq_results(self, table: str, execution_ctx: dict | None = None) -> list[DqResult]:
+        """Return all DQ results for a table/execution."""
+
+    @abstractmethod
+    def delete_dq_results(self, table: str, execution_ctx: dict | None = None) -> None:
+        """Delete all DQ results for a table/execution (before re-running checks)."""
 
     @abstractmethod
     def register_dep(

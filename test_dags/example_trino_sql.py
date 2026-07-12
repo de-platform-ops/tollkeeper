@@ -1,8 +1,7 @@
 """Example: Trino SQL operator wrapped with Tollkeeper.
 
-Demonstrates tollkeeper with Trino (formerly PrestoSQL). Uses explicit
-source declaration since Trino queries often involve catalog.schema.table
-naming that benefits from explicit lineage.
+Uses explicit source declaration for Trino's catalog.schema.table naming.
+DQ checks validate the aggregated output.
 """
 
 from __future__ import annotations
@@ -10,32 +9,13 @@ from __future__ import annotations
 from datetime import datetime
 
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
-from airflow_tollkeeper.compat import DAG
 
-from airflow_tollkeeper import register_defaults, tollkeeper_task_group
-from tollkeeper.backends.sql_passthrough import SqlPassthroughBackend
-from tollkeeper.checks.base import BaseCheck, CheckResult
+from airflow_tollkeeper import DqSqlCheck, register_defaults, tollkeeper_sql_task_group
+from airflow_tollkeeper.compat import DAG
 from tollkeeper.signals.sqlite import SqliteSignalStore
 
 register_defaults()
 
-
-class NotEmptyCheck(BaseCheck):
-    """Verify the target table is not empty after the write."""
-
-    def __init__(self, table: str) -> None:
-        self._table = table
-
-    def run(self, version_ref: str, *, conn=None) -> CheckResult:
-        # Real: cursor.execute(f"SELECT COUNT(*) FROM {table}")
-        return CheckResult(
-            check_name=self.name,
-            passed=True,
-            details=f"Placeholder: would count rows in {self._table}",
-        )
-
-
-backend = SqlPassthroughBackend()
 signal_store = SqliteSignalStore("/tmp/tollkeeper_signals.db")
 
 with DAG(
@@ -45,7 +25,7 @@ with DAG(
     catchup=False,
 ) as dag:
     trino_op = SQLExecuteQueryOperator(
-        task_id="trino_aggregate_inner",
+        task_id="aggregate_revenue",
         conn_id="trino_default",
         sql=(
             "INSERT INTO hive.analytics.daily_revenue "
@@ -56,13 +36,21 @@ with DAG(
         ),
     )
 
-    tg = tollkeeper_task_group(
+    tg = tollkeeper_sql_task_group(
         sql_operator=trino_op,
         table="hive.analytics.daily_revenue",
-        backend=backend,
-        checks=[NotEmptyCheck("hive.analytics.daily_revenue")],
+        conn_id="trino_default",
         signal_store=signal_store,
         sources=["hive.raw.transactions"],
-        engine="local",
         execution_ctx={"ds": "{{ ds }}"},
+        dq_checks=[
+            DqSqlCheck(
+                name="no_negative_revenue",
+                sql="SELECT * FROM {table} WHERE total < 0",
+            ),
+            DqSqlCheck(
+                name="not_empty",
+                sql="SELECT 1 WHERE (SELECT COUNT(*) FROM {table}) = 0",
+            ),
+        ],
     )

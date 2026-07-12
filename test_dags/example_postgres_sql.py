@@ -1,8 +1,7 @@
-"""Example: PostgreSQL SQL operator wrapped with Tollkeeper.
+"""Example: PostgreSQL upsert wrapped with Tollkeeper.
 
-Demonstrates the simplest case: a single SQLExecuteQueryOperator with
-no upstream dependencies (no sensors). Tollkeeper adds DQ auditing and
-signal emission so downstream DAGs can depend on this table's quality.
+Root node (no upstream sensors). Tollkeeper adds DQ checks and signal
+emission so downstream DAGs can depend on this table's quality.
 """
 
 from __future__ import annotations
@@ -10,33 +9,13 @@ from __future__ import annotations
 from datetime import datetime
 
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
-from airflow_tollkeeper.compat import DAG
 
-from airflow_tollkeeper import register_defaults, tollkeeper_task_group
-from tollkeeper.backends.sql_passthrough import SqlPassthroughBackend
-from tollkeeper.checks.base import BaseCheck, CheckResult
+from airflow_tollkeeper import DqSqlCheck, register_defaults, tollkeeper_sql_task_group
+from airflow_tollkeeper.compat import DAG
 from tollkeeper.signals.sqlite import SqliteSignalStore
 
 register_defaults()
 
-
-class NullColumnCheck(BaseCheck):
-    """Verify a column has no nulls by querying the database."""
-
-    def __init__(self, table: str, column: str) -> None:
-        self._table = table
-        self._column = column
-
-    def run(self, version_ref: str, *, conn=None) -> CheckResult:
-        # Real: cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE {column} IS NULL")
-        return CheckResult(
-            check_name=self.name,
-            passed=True,
-            details=f"Placeholder: would check nulls in {self._table}.{self._column}",
-        )
-
-
-backend = SqlPassthroughBackend()
 signal_store = SqliteSignalStore("/tmp/tollkeeper_signals.db")
 
 with DAG(
@@ -46,7 +25,7 @@ with DAG(
     catchup=False,
 ) as dag:
     pg_op = SQLExecuteQueryOperator(
-        task_id="upsert_users_inner",
+        task_id="upsert_users",
         conn_id="postgres_default",
         sql=(
             "INSERT INTO public.dim_users (id, name, email, updated_at) "
@@ -59,17 +38,28 @@ with DAG(
         ),
     )
 
-    # No sources= means no upstream sensors. This table is a root node.
-    # Tollkeeper still audits and emits a signal for downstream consumers.
-    tg = tollkeeper_task_group(
+    # No sources -> no upstream sensors. This table is a root node.
+    tg = tollkeeper_sql_task_group(
         sql_operator=pg_op,
         table="public.dim_users",
-        backend=backend,
-        checks=[
-            NullColumnCheck("public.dim_users", "id"),
-            NullColumnCheck("public.dim_users", "email"),
-        ],
+        conn_id="postgres_default",
         signal_store=signal_store,
         sources=[],
-        engine="local",
+        dq_checks=[
+            DqSqlCheck(
+                name="no_null_ids",
+                sql="SELECT * FROM {table} WHERE id IS NULL",
+            ),
+            DqSqlCheck(
+                name="no_null_emails",
+                sql="SELECT * FROM {table} WHERE email IS NULL",
+            ),
+            DqSqlCheck(
+                name="unique_emails",
+                sql=(
+                    "SELECT email, COUNT(*) as cnt "
+                    "FROM {table} GROUP BY email HAVING COUNT(*) > 1"
+                ),
+            ),
+        ],
     )

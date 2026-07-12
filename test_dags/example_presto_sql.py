@@ -1,8 +1,8 @@
-"""Example: Presto SQL operator wrapped with Tollkeeper.
+"""Example: Presto multi-table dependency chain with Tollkeeper.
 
-Demonstrates a multi-table dependency chain where two tollkeeper
-task groups form a pipeline: stg_sales feeds fct_sales. The second
-group's sensor automatically waits for the first group's signal.
+Two tollkeeper task groups form a pipeline: stg_sales feeds fct_sales.
+The second group's sensor automatically waits for the first group's signal.
+Each stage has its own DQ checks running as separate Airflow tasks.
 """
 
 from __future__ import annotations
@@ -10,33 +10,13 @@ from __future__ import annotations
 from datetime import datetime
 
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
-from airflow_tollkeeper.compat import DAG
 
-from airflow_tollkeeper import register_defaults, tollkeeper_task_group
-from tollkeeper.backends.sql_passthrough import SqlPassthroughBackend
-from tollkeeper.checks.base import BaseCheck, CheckResult
+from airflow_tollkeeper import DqSqlCheck, register_defaults, tollkeeper_sql_task_group
+from airflow_tollkeeper.compat import DAG
 from tollkeeper.signals.sqlite import SqliteSignalStore
 
 register_defaults()
 
-
-class SchemaCheck(BaseCheck):
-    """Verify expected columns exist in the target table."""
-
-    def __init__(self, table: str, expected_columns: list[str]) -> None:
-        self._table = table
-        self._expected = expected_columns
-
-    def run(self, version_ref: str, *, conn=None) -> CheckResult:
-        # Real: DESCRIBE table, then check columns match
-        return CheckResult(
-            check_name=self.name,
-            passed=True,
-            details=f"Placeholder: would verify {self._expected} in {self._table}",
-        )
-
-
-backend = SqlPassthroughBackend()
 signal_store = SqliteSignalStore("/tmp/tollkeeper_signals.db")
 
 with DAG(
@@ -47,7 +27,7 @@ with DAG(
 ) as dag:
     # Stage 1: raw_sales -> stg_sales
     stg_op = SQLExecuteQueryOperator(
-        task_id="load_stg_sales_inner",
+        task_id="load_stg_sales",
         conn_id="presto_default",
         sql=(
             "INSERT INTO hive.staging.stg_sales "
@@ -57,21 +37,29 @@ with DAG(
         ),
     )
 
-    stg_tg = tollkeeper_task_group(
+    stg_tg = tollkeeper_sql_task_group(
         sql_operator=stg_op,
         table="hive.staging.stg_sales",
-        backend=backend,
-        checks=[SchemaCheck("hive.staging.stg_sales", ["id", "amount", "region", "sale_date"])],
+        conn_id="presto_default",
         signal_store=signal_store,
         sources=["hive.raw.raw_sales"],
-        engine="local",
         execution_ctx={"ds": "{{ ds }}"},
+        dq_checks=[
+            DqSqlCheck(
+                name="no_null_ids",
+                sql="SELECT * FROM {table} WHERE id IS NULL",
+            ),
+            DqSqlCheck(
+                name="positive_amounts",
+                sql="SELECT * FROM {table} WHERE amount <= 0",
+            ),
+        ],
     )
 
     # Stage 2: stg_sales -> fct_sales
     # The sensor inside this group waits for stg_sales signal from Stage 1
     fct_op = SQLExecuteQueryOperator(
-        task_id="build_fct_sales_inner",
+        task_id="build_fct_sales",
         conn_id="presto_default",
         sql=(
             "INSERT INTO hive.analytics.fct_sales "
@@ -81,15 +69,23 @@ with DAG(
         ),
     )
 
-    fct_tg = tollkeeper_task_group(
+    fct_tg = tollkeeper_sql_task_group(
         sql_operator=fct_op,
         table="hive.analytics.fct_sales",
-        backend=backend,
-        checks=[SchemaCheck("hive.analytics.fct_sales", ["region", "sale_date", "total", "cnt"])],
+        conn_id="presto_default",
         signal_store=signal_store,
         sources=["hive.staging.stg_sales"],
-        engine="local",
         execution_ctx={"ds": "{{ ds }}"},
+        dq_checks=[
+            DqSqlCheck(
+                name="no_zero_counts",
+                sql="SELECT * FROM {table} WHERE cnt = 0",
+            ),
+            DqSqlCheck(
+                name="revenue_sanity",
+                sql="SELECT * FROM {table} WHERE total > 10000000",
+            ),
+        ],
     )
 
     stg_tg >> fct_tg
