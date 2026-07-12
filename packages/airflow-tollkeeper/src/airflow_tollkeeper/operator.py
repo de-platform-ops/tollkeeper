@@ -21,8 +21,8 @@ class TollkeeperOperator(BaseOperator):
     with ``engine="local"``). On success, the version is published and a signal
     is emitted. On failure, the version is rolled back.
 
-    Operators without a registered strategy pass through unchanged (no Tollkeeper
-    lifecycle, checks are skipped).
+    Operators without a registered strategy raise ``TypeError``. Use
+    ``PassThroughStrategy`` for operators that need no SQL rewriting.
     """
 
     def __init__(
@@ -54,8 +54,10 @@ class TollkeeperOperator(BaseOperator):
         strategy = strategy_registry.get(type(self.operator))
 
         if strategy is None:
-            self.operator.execute(context)
-            return None
+            raise TypeError(
+                f"No TollkeeperStrategy registered for {type(self.operator).__name__}. "
+                f"Register a strategy via strategy_registry.register() or use PassThroughStrategy."
+            )
 
         engine_conn = resolve_engine(self.engine, self.engine_conn_id)
 
