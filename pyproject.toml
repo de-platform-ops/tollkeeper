@@ -1,7 +1,7 @@
 [project]
 name = "tollkeeper"
 version = "0.1.0b1"
-description = "A module to manage the write-audit-publish paradigm with iceberg"
+description = "Python library for the Write-Audit-Publish pattern. Stage writes, run data quality checks, publish only when checks pass. Pluggable backends, SQL lineage parsing, and Airflow integration."
 readme = "README.md"
 authors = [
     { name = "Sadha Chilukoori", email = "srchilukoori@gmail.com" }
