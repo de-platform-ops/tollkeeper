@@ -72,11 +72,11 @@ Requires Python 3.11+.
 import shutil
 from pathlib import Path
 
-from write_audit_publish import WAP, CsvBackend, NullCheck, RowCountCheck
+from tollkeeper import Tollkeeper, CsvBackend, NullCheck, RowCountCheck
 
-backend = CsvBackend(staging_dir=Path("/tmp/wap"), publish_dir=Path("/data/output"))
+backend = CsvBackend(staging_dir=Path("/tmp/tollkeeper"), publish_dir=Path("/data/output"))
 
-(WAP(backend)
+(Tollkeeper(backend)
     .table("sales")
     .write(lambda ref: shutil.copy("upstream_output.csv", ref))
     .audit([NullCheck("id"), RowCountCheck(min_rows=100)])
@@ -88,7 +88,7 @@ If any check fails, the staged file is rolled back automatically. Production is 
 ### Context manager
 
 ```python
-with WAP(backend).table("sales") as session:
+with Tollkeeper(backend).table("sales") as session:
     session.write(lambda ref: shutil.copy("upstream_output.csv", ref))
     session.audit([NullCheck("id")])
     session.publish()
@@ -127,7 +127,7 @@ Five built-in checks using Polars (install with `[polars]` extra):
 Subclass `BaseCheck` to create checks with any engine:
 
 ```python
-from write_audit_publish import BaseCheck, CheckResult
+from tollkeeper import BaseCheck, CheckResult
 
 class SchemaCheck(BaseCheck):
     def __init__(self, expected_columns: list[str]) -> None:
@@ -169,10 +169,10 @@ session.audit(
 Coordinate across pipelines by tracking table readiness:
 
 ```python
-from write_audit_publish import WAP, SqliteSignalStore
+from tollkeeper import Tollkeeper, SqliteSignalStore
 
 signal_store = SqliteSignalStore("/tmp/signals.db")
-wap = WAP(backend, signal_store=signal_store)
+tk = Tollkeeper(backend, signal_store=signal_store)
 
 # After successful audit+publish, a signal is emitted automatically.
 # Downstream pipelines can check:
@@ -189,7 +189,7 @@ signal = signal_store.check("sales", {"ds": "2026-01-15"})
 Automatically extract source and sink tables from SQL (install with `[sql]` extra):
 
 ```python
-from write_audit_publish import extract_lineage
+from tollkeeper import extract_lineage
 
 result = extract_lineage(
     "INSERT INTO warehouse.fact_orders SELECT * FROM staging.raw_orders JOIN dim_date USING (dt)",
@@ -207,10 +207,10 @@ Handles CTEs (excluded from sources), schema/catalog-qualified names, INSERT/CTA
 The `airflow-tollkeeper` package wraps any Airflow operator in a Write-Audit-Publish lifecycle:
 
 ```python
-from airflow_wap import WAPOperator
+from airflow_tollkeeper import TollkeeperOperator
 
-wap_task = WAPOperator(
-    task_id="wap_load_orders",
+tk_task = TollkeeperOperator(
+    task_id="tk_load_orders",
     operator=sql_operator,          # any BaseOperator
     table="warehouse.fact_orders",
     backend=iceberg_backend,
@@ -219,21 +219,21 @@ wap_task = WAPOperator(
 )
 ```
 
-- **WAPOperator**: wraps any operator with write-audit-publish lifecycle
-- **WAPSensor**: gates downstream tasks on upstream WAP signal completion
-- **Strategy registry**: maps operator types to WAP redirect logic; unknown operators pass through unchanged
+- **TollkeeperOperator**: wraps any operator with write-audit-publish lifecycle
+- **TollkeeperSensor**: gates downstream tasks on upstream Tollkeeper signal completion
+- **Strategy registry**: maps operator types to Tollkeeper redirect logic; unknown operators pass through unchanged
 
 Requires `apache-airflow>=2.9`.
 
 ## API Reference
 
-### `WAP(backend, signal_store=None)`
+### `Tollkeeper(backend, signal_store=None)`
 
 Entry point. Takes a `Backend` and optional `SignalStore`.
 
-- `.table(name) -> WAPSession`: creates an isolated staging version
+- `.table(name) -> TollkeeperSession`: creates an isolated staging version
 
-### `WAPSession`
+### `TollkeeperSession`
 
 Returned by `.table()`. Supports fluent chaining and context manager:
 
