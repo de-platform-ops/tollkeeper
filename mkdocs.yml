@@ -31,6 +31,9 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Guides:
+      - Data Quality Checks: dq-checks.md
+      - Signal Store: signal-store.md
+      - SQL Lineage Parser: sql-lineage.md
       - SQL Passthrough Strategy: sql-strategy-flow.md
       - Docker Testing: docker-testing.md
   - API Reference: api.md
