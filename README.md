@@ -46,7 +46,7 @@ Raw data ──► Staging ──┤
 - **Hard and soft failure modes**: halt-and-rollback or publish-with-notification
 - **Signal store**: cross-pipeline coordination via SQLite or any DB-API 2.0 database
 - **SQL lineage parser**: automatic source/sink extraction from SQL using sqlglot
-- **Airflow integration**: `airflow-tollkeeper` package with WAPOperator, WAPSensor, strategy registry
+- **Airflow integration**: `airflow-tollkeeper` package with TollkeeperOperator, TollkeeperSensor, DQ operators, strategy registry
 
 ## Installation
 
@@ -99,7 +99,7 @@ with Tollkeeper(backend).table("sales") as session:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        WAP Lifecycle                             │
+│                     Tollkeeper Lifecycle                          │
 │                                                                  │
 │  1. WRITE     Your callback writes to an isolated staging ref    │
 │  2. AUDIT     DQ checks run against staged data                  │

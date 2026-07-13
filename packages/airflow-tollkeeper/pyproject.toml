@@ -47,7 +47,7 @@ exclude_lines = [
 ]
 
 [tool.uv.sources]
-tollkeeper = { path = "../.." }
+tollkeeper = { workspace = true }
 
 [tool.ruff]
 line-length = 120

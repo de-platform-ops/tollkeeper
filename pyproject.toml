@@ -54,6 +54,9 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
