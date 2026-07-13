@@ -92,3 +92,12 @@ class SignalStore(ABC):
     @abstractmethod
     def get_downstream(self, table: str, execution_ctx: dict | None = None) -> list[tuple[str, dict, str]]:
         """Return (table, ctx, cascade_policy) for all downstream dependents."""
+
+    def close(self) -> None:
+        """Release underlying resources. Override in subclasses that hold connections."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()

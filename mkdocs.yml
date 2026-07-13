@@ -1,6 +1,7 @@
 site_name: Tollkeeper
-repo_url: https://github.com/srchilukoori/tollkeeper
-repo_name: srchilukoori/tollkeeper
+site_url: https://de-platform-ops.github.io/tollkeeper/
+repo_url: https://github.com/de-platform-ops/tollkeeper
+repo_name: de-platform-ops/tollkeeper
 theme:
   name: material
   features:
@@ -33,3 +34,4 @@ nav:
       - SQL Passthrough Strategy: sql-strategy-flow.md
       - Docker Testing: docker-testing.md
   - API Reference: api.md
+  - Contributing: CONTRIBUTING.md

@@ -29,7 +29,9 @@ def backend():
 
 @pytest.fixture()
 def signal_store(tmp_path):
-    return SqliteSignalStore(str(tmp_path / "signals.db"))
+    store = SqliteSignalStore(str(tmp_path / "signals.db"))
+    yield store
+    store.close()
 
 
 class TestTollkeeperTaskGroupHappyPath:
