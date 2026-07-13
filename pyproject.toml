@@ -1,7 +1,7 @@
 [project]
 name = "tollkeeper"
-version = "0.1.0"
-description = "A module to manage the write-audit-publish paradigm with iceberg"
+version = "0.1.0b1"
+description = "Python library for the Write-Audit-Publish pattern. Stage writes, run data quality checks, publish only when checks pass. Pluggable backends, SQL lineage parsing, and Airflow integration."
 readme = "README.md"
 authors = [
     { name = "Sadha Chilukoori", email = "srchilukoori@gmail.com" }
@@ -53,6 +53,9 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
 ]
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [tool.ruff]
 line-length = 120
