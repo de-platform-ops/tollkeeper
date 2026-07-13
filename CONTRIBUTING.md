@@ -3,7 +3,7 @@
 ## Development setup
 
 ```bash
-git clone https://github.com/srchilukoori/tollkeeper.git
+git clone https://github.com/de-platform-ops/tollkeeper.git
 cd tollkeeper
 uv sync
 ```

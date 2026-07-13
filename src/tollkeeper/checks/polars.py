@@ -103,7 +103,7 @@ class SqlCheck(BaseCheck):
     def run(self, version_ref: str, *, conn: Any | None = None) -> CheckResult:
         df = pl.scan_csv(version_ref).collect()
         ctx = pl.SQLContext({"data": df})
-        violations = ctx.execute(f"SELECT * FROM data WHERE NOT ({self._condition})").collect()
+        violations = ctx.execute(f"SELECT * FROM data WHERE NOT ({self._condition})").collect()  # nosec B608 - Polars in-memory SQL, not a real DB
         return CheckResult(
             check_name=self.name,
             passed=len(violations) == 0,

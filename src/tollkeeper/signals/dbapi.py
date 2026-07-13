@@ -226,3 +226,6 @@ class DbApiSignalStore(SignalStore):
             (table, self._ctx_key(execution_ctx)),
         )
         return [(r[0], json.loads(r[1]), r[2]) for r in cur.fetchall()]
+
+    def close(self) -> None:
+        self._conn.close()

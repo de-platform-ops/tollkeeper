@@ -25,6 +25,7 @@ dev = [
     "ruff>=0.11",
     "sqlalchemy>=2.0.51",
     "ty>=0.0.1",
+    "bandit>=1.8",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -40,7 +41,7 @@ build-backend = "hatchling.build"
 packages = ["src/tollkeeper"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=tollkeeper --cov-report=term-missing --cov-report=html"
+addopts = "--import-mode=importlib --cov=tollkeeper --cov-report=term-missing --cov-report=html"
 
 [tool.coverage.run]
 source = ["tollkeeper"]

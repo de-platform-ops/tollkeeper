@@ -185,3 +185,6 @@ class SqliteSignalStore(SignalStore):
             (table, self._ctx_key(execution_ctx)),
         ).fetchall()
         return [(r["downstream_table"], json.loads(r["downstream_ctx"]), r["cascade_policy"]) for r in rows]
+
+    def close(self) -> None:
+        self._conn.close()

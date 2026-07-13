@@ -1,8 +1,12 @@
-# tollkeeper
+<p align="center">
+  <img src="docs/assets/tollkeeper-1a.png" alt="Tollkeeper" width="600">
+</p>
 
-[![CI](https://github.com/srchilukoori/tollkeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/srchilukoori/tollkeeper/actions/workflows/ci.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/de-platform-ops/tollkeeper/actions/workflows/ci.yml"><img src="https://github.com/de-platform-ops/tollkeeper/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"></a>
+</p>
 
 A Python library that implements the **Write-Audit-Publish** pattern for data pipelines. Stage writes in isolation, run data quality checks, and promote to production only when checks pass.
 
@@ -263,7 +267,7 @@ Returned by `.table()`. Supports fluent chaining and context manager:
 ## Development
 
 ```bash
-git clone https://github.com/srchilukoori/tollkeeper.git
+git clone https://github.com/de-platform-ops/tollkeeper.git
 cd tollkeeper
 uv sync --all-extras --group dev --group docs
 
