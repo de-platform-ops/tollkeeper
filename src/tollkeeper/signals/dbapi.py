@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import Any, Callable
 
-from tollkeeper.signals.base import Signal, SignalStore
+from tollkeeper.signals.base import DqResult, Signal, SignalStore
 
 
 class DbApiSignalStore(SignalStore):
@@ -45,6 +45,19 @@ class DbApiSignalStore(SignalStore):
                 check_summary VARCHAR(4096) DEFAULT '',
                 metadata      VARCHAR(4096) DEFAULT '{}',
                 PRIMARY KEY (table_name, execution_ctx)
+            )
+        """)
+        )
+        cur.execute(
+            self._p("""
+            CREATE TABLE IF NOT EXISTS tollkeeper_dq_results (
+                table_name    VARCHAR(512) NOT NULL,
+                execution_ctx VARCHAR(2048) NOT NULL DEFAULT '{}',
+                check_name    VARCHAR(256) NOT NULL,
+                passed        INTEGER NOT NULL,
+                details       VARCHAR(4096) DEFAULT '',
+                executed_at   VARCHAR(64) NOT NULL,
+                PRIMARY KEY (table_name, execution_ctx, check_name)
             )
         """)
         )
@@ -121,6 +134,57 @@ class DbApiSignalStore(SignalStore):
             check_summary=row[5],
             metadata=json.loads(row[6]),
         )
+
+    def write_dq_result(self, result: DqResult) -> None:
+        ctx_key = self._ctx_key(result.execution_ctx)
+        cur = self._conn.cursor()
+        cur.execute(
+            self._p("DELETE FROM tollkeeper_dq_results WHERE table_name = ? AND execution_ctx = ? AND check_name = ?"),
+            (result.table_name, ctx_key, result.check_name),
+        )
+        cur.execute(
+            self._p("""INSERT INTO tollkeeper_dq_results
+                       (table_name, execution_ctx, check_name, passed, details, executed_at)
+                       VALUES (?, ?, ?, ?, ?, ?)"""),
+            (
+                result.table_name,
+                ctx_key,
+                result.check_name,
+                int(result.passed),
+                result.details,
+                result.executed_at.isoformat(),
+            ),
+        )
+        self._conn.commit()
+
+    def get_dq_results(self, table: str, execution_ctx: dict | None = None) -> list[DqResult]:
+        ctx_key = self._ctx_key(execution_ctx)
+        cur = self._conn.cursor()
+        cur.execute(
+            self._p(
+                "SELECT table_name, execution_ctx, check_name, passed, details, executed_at FROM tollkeeper_dq_results WHERE table_name = ? AND execution_ctx = ?"
+            ),
+            (table, ctx_key),
+        )
+        return [
+            DqResult(
+                table_name=r[0],
+                check_name=r[2],
+                passed=bool(r[3]),
+                details=r[4],
+                execution_ctx=json.loads(r[1]),
+                executed_at=datetime.fromisoformat(r[5]),
+            )
+            for r in cur.fetchall()
+        ]
+
+    def delete_dq_results(self, table: str, execution_ctx: dict | None = None) -> None:
+        ctx_key = self._ctx_key(execution_ctx)
+        cur = self._conn.cursor()
+        cur.execute(
+            self._p("DELETE FROM tollkeeper_dq_results WHERE table_name = ? AND execution_ctx = ?"), (table, ctx_key)
+        )
+        self._conn.commit()
 
     def register_dep(
         self,

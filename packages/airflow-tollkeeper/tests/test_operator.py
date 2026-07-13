@@ -45,7 +45,7 @@ class TestResolveEngine:
 
 
 class TestTollkeeperOperatorPassthrough:
-    def test_unknown_operator_passes_through(self, dag, fake_context):
+    def test_unknown_operator_raises_type_error(self, dag, fake_context):
         unregister_fake_strategy()
         inner = FakeOperator(task_id="inner", dag=dag)
         backend = FakeBackend()
@@ -59,11 +59,8 @@ class TestTollkeeperOperatorPassthrough:
             engine="local",
             dag=dag,
         )
-        result = tk.execute(fake_context)
-
-        assert inner.executed
-        assert result is None
-        assert len(backend.created) == 0
+        with pytest.raises(TypeError, match="No TollkeeperStrategy registered"):
+            tk.execute(fake_context)
 
 
 class TestTollkeeperOperatorLifecycle:
@@ -176,3 +173,43 @@ class TestStrategyRegistry:
 
         strategy = strategy_registry.get(type("UnknownOp", (), {}))
         assert strategy is None
+
+
+class TestPassThroughStrategy:
+    def test_redirect_is_noop(self, dag):
+        from airflow_tollkeeper.strategy import PassThroughStrategy
+
+        from .conftest import FakeOperator
+
+        strategy = PassThroughStrategy()
+        op = FakeOperator(task_id="inner", dag=dag)
+        strategy.redirect(op, "some_ref")
+        strategy.restore(op)
+
+    def test_passthrough_registered_operator_runs_full_lifecycle(self, dag, fake_context):
+        from airflow_tollkeeper.strategy import PassThroughStrategy, strategy_registry
+
+        from .conftest import FakeOperator
+
+        strategy_registry.register(FakeOperator, PassThroughStrategy)
+        try:
+            inner = FakeOperator(task_id="inner", dag=dag)
+            backend = FakeBackend()
+
+            tk = TollkeeperOperator(
+                task_id="tollkeeper_task",
+                operator=inner,
+                table="test_table",
+                backend=backend,
+                checks=[PassingCheck()],
+                engine="local",
+                dag=dag,
+            )
+            result = tk.execute(fake_context)
+
+            assert inner.executed
+            assert len(backend.created) == 1
+            assert len(backend.published) == 1
+            assert result is not None
+        finally:
+            register_fake_strategy()

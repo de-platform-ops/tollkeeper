@@ -1,0 +1,21 @@
+services:
+  webserver:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./src:/opt/tollkeeper/src
+      - ./packages:/opt/tollkeeper/packages
+      - ./test_dags:/opt/tollkeeper/test_dags
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////home/airflow/airflow.db
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/tollkeeper/test_dags
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com 2>/dev/null || true &&
+        airflow webserver --port 8080
+      "

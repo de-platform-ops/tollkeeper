@@ -33,4 +33,44 @@ class StrategyRegistry:
         return strategy_cls() if strategy_cls else None
 
 
+class PassThroughStrategy(TollkeeperStrategy):
+    """No-op strategy for operators that write directly to the target table.
+
+    SQL operators (SQLExecuteQueryOperator, SparkSqlOperator) don't need
+    query rewriting. The operator runs its original SQL unchanged while
+    Tollkeeper still enforces the audit/signal lifecycle around it.
+    """
+
+    def redirect(self, operator: BaseOperator, version_ref: str) -> None:
+        pass
+
+    def restore(self, operator: BaseOperator) -> None:
+        pass
+
+
 strategy_registry = StrategyRegistry()
+
+
+def register_defaults() -> list[str]:
+    """Register PassThroughStrategy for known SQL operators.
+
+    Returns the list of operator class names that were registered.
+    Safe to call if providers are not installed.
+    """
+    registered: list[str] = []
+    _operators = [
+        "airflow.providers.common.sql.operators.sql.SQLExecuteQueryOperator",
+        "airflow.providers.apache.spark.operators.spark_sql.SparkSqlOperator",
+    ]
+    for fqn in _operators:
+        module_path, cls_name = fqn.rsplit(".", 1)
+        try:
+            import importlib
+
+            mod = importlib.import_module(module_path)
+            op_cls = getattr(mod, cls_name)
+            strategy_registry.register(op_cls, PassThroughStrategy)
+            registered.append(cls_name)
+        except (ImportError, AttributeError):
+            pass
+    return registered
