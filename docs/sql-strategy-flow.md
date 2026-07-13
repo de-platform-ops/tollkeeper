@@ -1,171 +1,205 @@
-# SQL PassThrough Strategy: How It Works
+# SQL Passthrough Strategy
 
-## The Problem
+Tollkeeper's SQL passthrough strategy lets you add data quality gating and
+signal-based orchestration to standard SQL operators (PostgreSQL, MySQL,
+Trino, Snowflake, Spark SQL) without requiring a table format that supports
+physical versioning.
 
-Standard SQL tables (PostgreSQL, MySQL, Trino, etc.) have no physical
-versioning. Unlike Iceberg or Delta, there is no "branch" to write to
-and promote. Writes go directly to the production table.
+## How it works
 
-Tollkeeper still provides value here through **orchestration-level isolation**:
-upstream signals gate downstream execution, DQ checks validate the data
-before the signal is emitted, and a failed audit prevents the signal,
-halting the pipeline.
-
-## Architecture: What Tollkeeper Wraps Around Your Operator
-
-```
-                         tollkeeper_task_group("orders")
-    +--------------------------------------------------------------------+
-    |                                                                    |
-    |  +------------------+     +-------------------+                    |
-    |  | wait_raw_events  |---->|                   |                    |
-    |  | (TollkeeperSensor|     |                   |                    |
-    |  |  polls signal    |     |  tollkeeper_orders |                    |
-    |  |  store for       |     | (TollkeeperOperator|                    |
-    |  |  "raw_events")   |     |  wraps your       |                    |
-    |  +------------------+     |  SQLExecuteQuery)  |                    |
-    |                           |                   |                    |
-    |  +------------------+     |                   |                    |
-    |  | wait_dim_products|---->|                   |                    |
-    |  | (TollkeeperSensor|     +-------------------+                    |
-    |  |  polls signal    |                                              |
-    |  |  store for       |                                              |
-    |  |  "dim_products") |                                              |
-    |  +------------------+                                              |
-    |                                                                    |
-    +--------------------------------------------------------------------+
-```
-
-## Execution Flow Inside TollkeeperOperator
+Standard SQL tables have no branches or snapshots. Writes go directly to the
+production table. Tollkeeper wraps your SQL operator with orchestration-level
+isolation: upstream signals gate execution, DQ checks validate the write, and
+the signal is only emitted when every check passes. A failed check halts the
+pipeline at the audit boundary.
 
 ```
-TollkeeperOperator.execute(context)
-    |
-    |  1. STRATEGY LOOKUP
-    |     strategy = strategy_registry.get(SQLExecuteQueryOperator)
-    |     |
-    |     +-- Not found? --> raise TypeError
-    |     +-- Found PassThroughStrategy
-    |
-    |  2. RESOLVE DQ ENGINE
-    |     engine_conn = resolve_engine(engine, engine_conn_id)
-    |     |
-    |     +-- engine="local"  --> LOCAL_ENGINE (in-process, for tests)
-    |     +-- engine="spark"  --> BaseHook.get_connection("tollkeeper_engine_spark")
-    |     +-- engine_conn_id  --> BaseHook.get_connection(engine_conn_id)
-    |
-    |  3. CREATE SESSION (context manager)
-    |     tk = Tollkeeper(backend, signal_store)
-    |     session = tk.table("orders")
-    |     |
-    |     +-- backend.create_version("orders")
-    |     |   |
-    |     |   +-- SqlPassthroughBackend: returns "orders" (the table name itself)
-    |     |   +-- IcebergBackend: returns "orders__tk_abc123" (a branch)
-    |     |   +-- CsvBackend: returns "/staging/orders.tollkeeper-abc.csv"
-    |     |
-    |     +-- session.ref = "orders"  (for SqlPassthrough)
-    |
-    |  4. REDIRECT (no-op for PassThrough)
-    |     strategy.redirect(operator, session.ref)
-    |     |
-    |     +-- PassThroughStrategy: pass  (SQL runs unchanged)
-    |     +-- IcebergStrategy: rewrites SQL to target the branch table
-    |
-    |  5. EXECUTE THE WRAPPED OPERATOR
-    |     operator.execute(context)
-    |     |
-    |     +-- Your SQLExecuteQueryOperator runs its SQL against the DB
-    |     +-- Data is written directly to "orders" (no staging for SQL)
-    |
-    |  6. RESTORE (no-op for PassThrough)
-    |     strategy.restore(operator)
-    |
-    |  7. AUDIT (DQ checks)
-    |     session.audit(checks, on_failure, execution_ctx)
-    |     |
-    |     +-- Deletes any stale signal for "orders"
-    |     +-- Runs each BaseCheck against session.ref
-    |     |
-    |     +-- All passed?
-    |     |   +-- YES: Writes Signal(table="orders", status="passed") to store
-    |     |   +-- NO + on_failure="stop":
-    |     |   |     backend.rollback_version()  (logs warning for SQL)
-    |     |   |     raises AuditFailedError
-    |     |   |     signal is NOT written --> downstream sensors hang/timeout
-    |     |   +-- NO + on_failure="continue":
-    |     |         signal is NOT written --> downstream sensors hang/timeout
-    |     |         session continues (caller decides)
-    |
-    |  8. PUBLISH
-    |     session.publish()
-    |     |
-    |     +-- SqlPassthroughBackend.publish_version(): no-op
-    |     +-- IcebergBackend: fast-forward branch to main
-    |
-    |  9. XCOM
-    |     push "tollkeeper_version_ref" = session.ref
+[upstream sensors] >> [your SQL operator] >> [DQ check tasks] >> [signal emitter]
 ```
 
-## Signal Flow Across a Pipeline
+Each stage is a visible Airflow task. DQ checks run as real SQL queries
+against the target database, not in-process Python checks.
+
+## Task group structure
+
+`tollkeeper_sql_task_group()` builds the following Airflow tasks:
 
 ```
-DAG: daily_pipeline
-====================
-
-  [raw_events signal exists?]          [dim_products signal exists?]
-         |                                      |
-         v                                      v
-  +--------------+                       +--------------+
-  | wait_raw     |                       | wait_dim     |
-  | (Sensor)     |                       | (Sensor)     |
-  +--------------+                       +--------------+
-         \                                     /
-          \                                   /
-           +--------> +---------------+ <----+
-                      |  tollkeeper   |
-                      |  _orders      |
-                      | (Operator)    |
-                      +---------------+
-                             |
-                    audit passes? ----NO----> AuditFailedError
-                             |                no signal written
-                            YES               downstream blocked
-                             |
-                      signal_store.write(
-                        Signal("orders", "passed")
-                      )
-                             |
-                             v
-                   downstream sensors for
-                   "orders" will now resolve
+    tollkeeper_task_group("orders")
+   +-----------------------------------------------------------+
+   |                                                           |
+   |  wait_raw_events ─┐                                      |
+   |  (TollkeeperSensor)├──> upsert_orders ──┬─> dq_no_nulls  |
+   |  wait_dim_products ┘    (your SQL op)    ├─> dq_min_rows  |
+   |                                          └─> dq_freshness |
+   |                                                  |        |
+   |                                           signal_orders   |
+   |                                                           |
+   +-----------------------------------------------------------+
 ```
 
-## The Critical Safety Property
+| Task | What it does |
+|------|-------------|
+| `wait_*` sensors | Poll the signal store until each upstream table's signal exists. Skipped for root nodes (no upstream). |
+| Your SQL operator | Runs your unmodified SQL. Tollkeeper does not rewrite the query. |
+| `dq_*` checks | Each `DqSqlCheck` becomes a separate Airflow task. Runs a validation query via the same database connection. Zero result rows = pass. |
+| `signal_*` emitter | Reads all DQ results for this table. If every check passed, writes a `Signal` to the store. If any failed, raises `AirflowException` (configurable). |
 
-For standard SQL (PassThrough), the data IS already written to production
-before the audit runs. The protection is:
+## Components
 
-1. If audit **fails**, no signal is emitted
-2. Downstream tasks waiting on this table's signal will **never proceed**
-3. The pipeline halts at the audit boundary, not at the write boundary
+### SqlPassthroughBackend
 
-This is weaker than Iceberg/Delta (where the write is physically isolated),
-but it is the best possible guarantee for standard SQL without CDC or
-shadow tables.
+A no-op backend for tables that do not support physical versioning.
+
+| Method | Behavior |
+|--------|----------|
+| `create_version(table)` | Returns the table name unchanged |
+| `publish_version(table, ref)` | No-op |
+| `rollback_version(table, ref)` | Logs a warning (data is already written) |
+
+### PassThroughStrategy
+
+A no-op strategy registered for `SQLExecuteQueryOperator` and
+`SparkSqlOperator`. Both `redirect()` and `restore()` are no-ops. Your SQL
+runs unmodified.
+
+Call `register_defaults()` once at DAG-module level to register it.
+
+### DqSqlCheck
+
+A dataclass holding a check name and a SQL template. The SQL must return
+violation rows (zero rows = pass). Use `{table}` as a placeholder for the
+target table name.
+
+```python
+DqSqlCheck(
+    name="no_null_ids",
+    sql="SELECT * FROM {table} WHERE id IS NULL",
+)
+```
+
+### TollkeeperDqOperator
+
+An Airflow operator that runs a single DQ check. It calls
+`hook.get_records(check_sql)` using your Airflow connection and writes the
+result to the `tollkeeper_dq_results` table in the signal store.
+
+### TollkeeperSignalEmitter
+
+Reads all DQ results for the target table. If every expected check passed,
+writes a `Signal(status="passed")` to the signal store. If any check failed
+or is missing, raises `AirflowException` (when `on_failure="stop"`).
+
+## Usage
+
+### Minimal example (root node, no upstream)
+
+```python
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+from airflow_tollkeeper import DqSqlCheck, register_defaults, tollkeeper_sql_task_group
+from airflow_tollkeeper.compat import DAG
+from tollkeeper.signals.sqlite import SqliteSignalStore
+
+register_defaults()
+signal_store = SqliteSignalStore("/tmp/tollkeeper_signals.db")
+
+with DAG(dag_id="example", start_date=datetime(2025, 1, 1), schedule=None) as dag:
+    op = SQLExecuteQueryOperator(
+        task_id="upsert_users",
+        conn_id="postgres_default",
+        sql="INSERT INTO dim_users SELECT * FROM stg_users ON CONFLICT (id) DO UPDATE ...",
+    )
+
+    tg = tollkeeper_sql_task_group(
+        sql_operator=op,
+        table="dim_users",
+        conn_id="postgres_default",
+        signal_store=signal_store,
+        sources=[],          # root node, no upstream sensors
+        dq_checks=[
+            DqSqlCheck(name="no_null_ids", sql="SELECT * FROM {table} WHERE id IS NULL"),
+            DqSqlCheck(name="no_null_emails", sql="SELECT * FROM {table} WHERE email IS NULL"),
+        ],
+    )
+```
+
+### With upstream dependencies
+
+```python
+tg = tollkeeper_sql_task_group(
+    sql_operator=op,
+    table="fct_sales",
+    conn_id="trino_default",
+    signal_store=signal_store,
+    sources=["stg_sales", "dim_products"],   # sensors auto-created
+    dq_checks=[
+        DqSqlCheck(name="no_negative_revenue", sql="SELECT * FROM {table} WHERE revenue < 0"),
+    ],
+)
+```
+
+Tollkeeper creates a `TollkeeperSensor` for each source. The sensors poll
+the signal store until the upstream table's signal exists before allowing
+your SQL operator to run.
+
+### Multi-table chains
+
+When one task group's output is another's input, the signal store links them
+automatically:
+
+```python
+stg_tg = tollkeeper_sql_task_group(
+    sql_operator=stg_op, table="stg_sales", sources=["raw_sales"], ...
+)
+fct_tg = tollkeeper_sql_task_group(
+    sql_operator=fct_op, table="fct_sales", sources=["stg_sales"], ...
+)
+stg_tg >> fct_tg
+```
+
+`fct_sales`'s sensor waits for `stg_sales`'s signal before running.
+
+## Safety model
+
+For standard SQL, data is written to the production table before DQ checks
+run. The protection is at the signal boundary, not the write boundary:
+
+1. If DQ checks **pass**: signal is emitted, downstream proceeds.
+2. If DQ checks **fail**: no signal is emitted, downstream tasks that depend
+   on this table's signal never run. The pipeline halts.
 
 ```
-  ICEBERG FLOW                          SQL PASSTHROUGH FLOW
-  ============                          ====================
+  Iceberg/Delta                             SQL Passthrough
+  =============                             ===============
 
-  Write to branch ----+                 Write to prod table ---+
-  (isolated)          |                 (NOT isolated)         |
-                      v                                        v
-              Audit branch                              Audit prod table
-                      |                                        |
-              Pass? --+-- Fail?                        Pass? --+-- Fail?
-              |            |                           |            |
-        Fast-forward    Drop branch               Emit signal   NO signal
-        to main         (no damage)               (data stays)  (data stays,
-        + emit signal                                            pipeline halts)
+  Write to branch (isolated)                Write to prod table
+          |                                         |
+     Audit branch                              Audit prod table
+          |                                         |
+    Pass? ── Fail?                           Pass? ── Fail?
+      |        |                               |        |
+  Fast-forward  Drop branch                Emit signal  No signal
+  + emit signal (no damage)                (data stays) (pipeline halts)
 ```
+
+Iceberg/Delta isolates the write physically. SQL passthrough isolates
+downstream consumption via signals. Both prevent bad data from propagating
+through the pipeline.
+
+## Parameters reference
+
+`tollkeeper_sql_task_group()` accepts:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sql_operator` | `BaseOperator` | Yes | Your SQL operator instance |
+| `table` | `str` | Yes | Target table name |
+| `dq_checks` | `list[DqSqlCheck]` | Yes | DQ validation queries |
+| `signal_store` | `SignalStore` | Yes | Where signals and DQ results are stored |
+| `conn_id` | `str` | Yes | Airflow connection for running DQ queries |
+| `sources` | `list[str]` | No | Upstream tables. Sensors created for each. Auto-parsed from SQL if omitted. |
+| `dialect` | `str` | No | SQL dialect for auto-parsing (e.g. `"snowflake"`, `"trino"`) |
+| `execution_ctx` | `dict` | No | Execution context passed to signal store (e.g. `{"ds": "2025-01-01"}`) |
+| `on_failure` | `str` | No | `"stop"` (default) raises on DQ failure. `"continue"` skips the signal silently. |
+| `group_id` | `str` | No | Override the task group ID (default: `tollkeeper_{table}`) |
+| `dag` | `DAG` | No | Explicit DAG reference (usually inferred from context) |

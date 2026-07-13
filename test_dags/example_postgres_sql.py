@@ -56,10 +56,7 @@ with DAG(
             ),
             DqSqlCheck(
                 name="unique_emails",
-                sql=(
-                    "SELECT email, COUNT(*) as cnt "
-                    "FROM {table} GROUP BY email HAVING COUNT(*) > 1"
-                ),
+                sql=("SELECT email, COUNT(*) as cnt FROM {table} GROUP BY email HAVING COUNT(*) > 1"),
             ),
         ],
     )
