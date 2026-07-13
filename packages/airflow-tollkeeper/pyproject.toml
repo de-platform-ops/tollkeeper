@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Airflow operator wrapper for tollkeeper"
 readme = "README.md"
 authors = [
-    { name = "Sadha Chilukoori", email = "srchilukoori@gmail.com" }
+    { name = "Sadha Chilukoori", email = "sage.quotient@gmail.com" }
 ]
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"

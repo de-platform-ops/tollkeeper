@@ -11,7 +11,7 @@ Do not open a public GitHub issue for security vulnerabilities.
 Report privately using one of these channels:
 
 - GitHub's private security advisory feature: go to the Security tab on this repository, then "Report a vulnerability".
-- Email: srchilukoori@gmail.com
+- Email: sage.quotient@gmail.com
 
 Include enough detail to reproduce the issue: affected version, a minimal repro, and the impact you expect.
 
