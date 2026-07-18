@@ -139,12 +139,12 @@ tk_op = TollkeeperOperator(
 ## SQL task group (`tollkeeper_sql_task_group`)
 
 The simpler path when the write is already SQL run through an Airflow DB-API connection. No
-strategy or backend needed — the SQL operator runs unchanged, DQ checks run as separate tasks
+strategy or backend needed. The SQL operator runs unchanged, DQ checks run as separate tasks
 against the same connection, and a signal is emitted only if every check passes.
 
 | Parameter | Type | Notes |
 |---|---|---|
-| `sql_operator` | `BaseOperator` | e.g. `SQLExecuteQueryOperator` — runs unmodified |
+| `sql_operator` | `BaseOperator` | e.g. `SQLExecuteQueryOperator`. runs unmodified |
 | `table` | `str` | Target table name |
 | `dq_checks` | `list[DqSqlCheck]` | Each becomes its own `TollkeeperDqOperator` task |
 | `signal_store` | `SignalStore` | Stores DQ results and the final signal |
@@ -156,14 +156,14 @@ against the same connection, and a signal is emitted only if every check passes.
 | `on_failure` | `str` | `"stop"` (default) or continue past a failed check |
 | `group_id` | `str \| None` | Defaults to `tollkeeper_<table_slug>` |
 
-`DqSqlCheck(name, sql)` — `sql` must contain a `{table}` placeholder and return violation rows.
+`DqSqlCheck(name, sql)`. `sql` must contain a `{table}` placeholder and return violation rows.
 Zero rows returned means the check passes.
 
 ## Generic task group (`tollkeeper_task_group`)
 
 Same shape (`[sensors] >> tollkeeper_op`) but built on `TollkeeperOperator` instead of a bare SQL
 operator, so it takes `backend`, `checks`, `engine`, and `engine_conn_id` instead of `dq_checks`
-and `conn_id`. Use it whenever the wrapped operator isn't a DB-API SQL operator — Spark, a Python
+and `conn_id`. Use it whenever the wrapped operator isn't a DB-API SQL operator. Spark, a Python
 callable, anything needing a real staging redirect via a `TollkeeperStrategy`.
 
 | | `tollkeeper_sql_task_group` | `tollkeeper_task_group` |
@@ -192,7 +192,7 @@ target table unconditionally (plain SQL). `register_defaults()` registers it for
 `SQLExecuteQueryOperator` and `SparkSqlOperator` if those providers are importable; missing
 providers are skipped silently.
 
-Write a custom strategy when the operator needs real staging redirection — swap a table name,
+Write a custom strategy when the operator needs real staging redirection. swap a table name,
 S3 path, or `--output` arg on `redirect`, put it back on `restore`:
 
 ```python
@@ -211,10 +211,10 @@ strategy_registry.register(MyOperator, MyOperatorStrategy)
 ## Auto-lineage
 
 Both task group builders accept `sources`. If you don't pass it, sources are resolved from SQL via
-`tollkeeper.parser.extract_lineage()` — pulled from `sql_operator.sql` (or the `sql=` override) and
+`tollkeeper.parser.extract_lineage()`. pulled from `sql_operator.sql` (or the `sql=` override) and
 parsed with `dialect=` if given. If the parsed sinks don't match `table`, a `ValueError` is raised
 so a lineage mismatch fails fast at DAG-parse time instead of silently sensing the wrong table. If
-parsing fails, a warning is logged and the group is built with no sensors — treat that as a signal
+parsing fails, a warning is logged and the group is built with no sensors. treat that as a signal
 to pass `sources=` explicitly.
 
 ## Signal coordination
@@ -230,7 +230,7 @@ Signals are emitted after a successful publish:
 - `tollkeeper_sql_task_group`: `TollkeeperSignalEmitter` writes it only once every `DqSqlCheck` in
   `expected_checks` has a passing result.
 
-Cross-DAG example — `dag_b` waits on a table `dag_a` publishes, same signal store:
+Cross-DAG example. `dag_b` waits on a table `dag_a` publishes, same signal store:
 
 ```python
 # dag_a.py
